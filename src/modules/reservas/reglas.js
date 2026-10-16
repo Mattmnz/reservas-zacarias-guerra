@@ -32,7 +32,6 @@ function puedeTransicionar(estado, accion) {
   // hasOwn evita que claves heredadas como 'toString' cuenten como estado o acción.
   return Object.hasOwn(TRANSICIONES, estado) && Object.hasOwn(TRANSICIONES[estado], accion);
 }
-
 function estadoResultante(estado, accion) {
   if (!puedeTransicionar(estado, accion)) {
     throw new RangeError(`Transición inválida: ${String(estado)} → ${String(accion)}`);
