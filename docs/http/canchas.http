@@ -228,6 +228,14 @@ Content-Type: application/json
   "precioHora": 1200
 }
 
+### Auditoría de Prueba 1 → 200, 2 filas: ALTA (INACTIVA → ACTIVA, motivo "Mantenimiento terminado") y CREAR (null → ACTIVA, motivo "Nombre: Prueba 1; tipo: SALA")
+GET {{base}}/auditoria?entidad=CANCHA&entidadId={{prueba1}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Auditoría de Prueba 2 → 200, 2 filas: EDITAR (motivo "tipo: SALA → CAMPO") y CREAR. El PUT sin cambios y el renombre fallido no agregan filas
+GET {{base}}/auditoria?entidad=CANCHA&entidadId={{prueba2}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
 # ---------------------------------------------------------------------------
 # Limpieza al terminar, en SSMS (primero la auditoría: la subconsulta necesita las canchas):
 #
