@@ -1,0 +1,65 @@
+# Auditoría — peticiones para la extensión REST Client.
+#
+# Las credenciales del admin no se versionan. Definí adminCorreo y adminPassword
+# como entorno "local" de REST Client en tu configuración de usuario (settings.json):
+#
+#   "rest-client.environmentVariables": {
+#     "local": {
+#       "adminCorreo": "<valor de SEED_ADMIN_CORREO>",
+#       "adminPassword": "<valor de SEED_ADMIN_PASSWORD>"
+#     }
+#   }
+#
+# Después elegí el entorno "local" (Ctrl+Alt+E) antes de ejecutar las peticiones.
+#
+# Hoy no hay registros de auditoría en la base: los generan los cambios de estado
+# de reservas y canchas. Mientras tanto, los listados dan 200 con arreglo vacío.
+
+@base = http://localhost:3000/api
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login cliente1 → 200
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Listar sin filtros → 200
+GET {{base}}/auditoria
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Filtrar por entidad → 200
+GET {{base}}/auditoria?entidad=RESERVA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Filtrar por entidad e id → 200
+GET {{base}}/auditoria?entidad=RESERVA&entidadId=1
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Entidad desconocida → 400 VALIDACION
+GET {{base}}/auditoria?entidad=OTRA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### entidadId no numérico → 400 VALIDACION
+GET {{base}}/auditoria?entidadId=abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Con token de cliente → 403 SIN_PERMISO
+GET {{base}}/auditoria
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/auditoria
