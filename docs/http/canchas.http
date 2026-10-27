@@ -1,0 +1,246 @@
+# Canchas y tipos de cancha — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client con adminCorreo y adminPassword
+# (ver auth.http). Ejecutá las peticiones en orden: los ids salen de las
+# respuestas con nombre, porque IDENTITY no reutiliza valores.
+#
+# Solo se usan canchas de prueba (Prueba 1, Prueba 2); nunca se editan las del
+# seed: el seed es idempotente por nombre y, si se renombra una, crearía otra.
+
+@base = http://localhost:3000/api
+@prueba1 = {{crearPrueba1.response.body.data.id}}
+@prueba2 = {{crearPrueba2.response.body.data.id}}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Filtrar por tipo SALA → 200, solo canchas SALA
+GET {{base}}/canchas?tipo=SALA
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Tipo inexistente → 200 con []
+GET {{base}}/canchas?tipo=XXX
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Tipos de cancha → 200 [{ id, codigo, nombre, precioHora }]
+# @name listarTipos
+GET {{base}}/tipos-cancha
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Crear Prueba 1 (SALA) → 201, activa
+# @name crearPrueba1
+POST {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "  Prueba 1  ",
+  "tipoCanchaId": {{listarTipos.response.body.data[0].id}}
+}
+
+### Crear Prueba 2 (SALA) → 201
+# @name crearPrueba2
+POST {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 2",
+  "tipoCanchaId": {{listarTipos.response.body.data[0].id}}
+}
+
+### Detalle de Prueba 1 → 200
+GET {{base}}/canchas/{{prueba1}}
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Nombre duplicado → 400 VALIDACION
+POST {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 1",
+  "tipoCanchaId": {{listarTipos.response.body.data[0].id}}
+}
+
+### Tipo inexistente → 400 VALIDACION
+POST {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 3",
+  "tipoCanchaId": 999999
+}
+
+### Cliente crea una cancha → 403 SIN_PERMISO
+POST {{base}}/canchas
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 3",
+  "tipoCanchaId": {{listarTipos.response.body.data[0].id}}
+}
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/canchas
+
+### Editar Prueba 2: pasa a CAMPO → 200
+PUT {{base}}/canchas/{{prueba2}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 2",
+  "tipoCanchaId": {{listarTipos.response.body.data[1].id}}
+}
+
+### Editar sin cambios → 200, sin auditoría nueva
+PUT {{base}}/canchas/{{prueba2}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 2",
+  "tipoCanchaId": {{listarTipos.response.body.data[1].id}}
+}
+
+### Renombrar Prueba 2 a Prueba 1 → 400 VALIDACION (duplicado en PUT)
+PUT {{base}}/canchas/{{prueba2}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba 1",
+  "tipoCanchaId": {{listarTipos.response.body.data[1].id}}
+}
+
+# ---------------------------------------------------------------------------
+# La baja llega con el #20. Antes de seguir, inactivá Prueba 1 en SSMS:
+#
+#   UPDATE Cancha SET Activa = 0 WHERE Nombre = N'Prueba 1';
+# ---------------------------------------------------------------------------
+
+### Admin, sin incluirInactivas → 200, sin Prueba 1
+GET {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Admin, incluirInactivas=true → 200, con Prueba 1 (activa: false)
+GET {{base}}/canchas?incluirInactivas=true
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Cliente, sin incluirInactivas → 200, sin Prueba 1
+GET {{base}}/canchas
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Cliente, incluirInactivas=true → 200, sin Prueba 1 (se ignora)
+GET {{base}}/canchas?incluirInactivas=true
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Detalle de Prueba 1 inactiva como cliente → 404 NO_ENCONTRADO
+GET {{base}}/canchas/{{prueba1}}
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Detalle de Prueba 1 inactiva como admin → 200 (activa: false)
+GET {{base}}/canchas/{{prueba1}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Alta de Prueba 1 → 200 (activa: true)
+PATCH {{base}}/canchas/{{prueba1}}/alta
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "motivo": "Mantenimiento terminado"
+}
+
+### Alta otra vez → 409 TRANSICION_INVALIDA
+PATCH {{base}}/canchas/{{prueba1}}/alta
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{}
+
+### Id no numérico → 400 VALIDACION
+GET {{base}}/canchas/abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Precio válido de SALA → 200
+PUT {{base}}/tipos-cancha/{{listarTipos.response.body.data[0].id}}/precio
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "precioHora": 650.5
+}
+
+### Precio con 3 decimales → 400 VALIDACION
+PUT {{base}}/tipos-cancha/{{listarTipos.response.body.data[0].id}}/precio
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "precioHora": 12.345
+}
+
+### Precio 0 → 400 VALIDACION
+PUT {{base}}/tipos-cancha/{{listarTipos.response.body.data[0].id}}/precio
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "precioHora": 0
+}
+
+### Restaurar SALA a 600 → 200
+PUT {{base}}/tipos-cancha/{{listarTipos.response.body.data[0].id}}/precio
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "precioHora": 600
+}
+
+### Restaurar CAMPO a 1200 → 200
+PUT {{base}}/tipos-cancha/{{listarTipos.response.body.data[1].id}}/precio
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "precioHora": 1200
+}
+
+### Auditoría de Prueba 1 → 200, 2 filas: ALTA (INACTIVA → ACTIVA, motivo "Mantenimiento terminado") y CREAR (null → ACTIVA, motivo "Nombre: Prueba 1; tipo: SALA")
+GET {{base}}/auditoria?entidad=CANCHA&entidadId={{prueba1}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Auditoría de Prueba 2 → 200, 2 filas: EDITAR (motivo "tipo: SALA → CAMPO") y CREAR. El PUT sin cambios y el renombre fallido no agregan filas
+GET {{base}}/auditoria?entidad=CANCHA&entidadId={{prueba2}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# Limpieza al terminar, en SSMS (primero la auditoría: la subconsulta necesita las canchas):
+#
+#   DELETE FROM Auditoria
+#   WHERE Entidad = 'CANCHA'
+#     AND EntidadId IN (SELECT Id FROM Cancha WHERE Nombre LIKE N'Prueba%');
+#   DELETE FROM Cancha WHERE Nombre LIKE N'Prueba%';
+# ---------------------------------------------------------------------------
