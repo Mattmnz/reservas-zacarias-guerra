@@ -1,0 +1,298 @@
+# Usuarios — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client con adminCorreo y adminPassword
+# (ver auth.http). Las peticiones se ejecutan en orden: los ids y los tokens
+# salen de las respuestas con nombre.
+#
+# Solo se modifica un usuario de prueba (prueba.usuarios@prueba.local); nunca
+# el admin ni los clientes del seed. Si el usuario ya existe de una corrida
+# anterior, el registro responde 409 y el resto funciona igual. Si una corrida
+# quedó a medias, ejecutar la limpieza del final y empezar de nuevo.
+
+@base = http://localhost:3000/api
+@adminId = {{loginAdmin.response.body.data.usuario.id}}
+@pruebaId = {{loginPrueba.response.body.data.usuario.id}}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Registrar el usuario de prueba → 201 (409 CORREO_DUPLICADO si ya existe: no afecta)
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Prueba Usuarios",
+  "correo": "prueba.usuarios@prueba.local",
+  "password": "Prueba123!",
+  "telefono": "88880001"
+}
+
+### Login del usuario de prueba → 200 (su token se reutiliza más abajo)
+# @name loginPrueba
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "prueba.usuarios@prueba.local",
+  "password": "Prueba123!"
+}
+
+### El token del usuario de prueba funciona → 200
+GET {{base}}/auth/yo
+Authorization: Bearer {{loginPrueba.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# Listado
+# ---------------------------------------------------------------------------
+
+### Listado completo → 200, por nombre y luego id; sin passwordHash; creadoEn YYYY-MM-DDTHH:mm:ss
+GET {{base}}/usuarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Solo administradores → 200
+GET {{base}}/usuarios?rol=ADMIN
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Clientes activos → 200, incluye a Prueba Usuarios
+GET {{base}}/usuarios?rol=CLIENTE&activo=true
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Inactivos → 200 (puede venir [])
+GET {{base}}/usuarios?activo=false
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Rol inválido → 400 VALIDACION
+GET {{base}}/usuarios?rol=SUPER
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Activo inválido → 400 VALIDACION
+GET {{base}}/usuarios?activo=1
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# Acceso
+# ---------------------------------------------------------------------------
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/usuarios
+
+### Cliente lista usuarios → 403 SIN_PERMISO
+GET {{base}}/usuarios
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Cliente cambia un rol → 403 SIN_PERMISO
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN"
+}
+
+# ---------------------------------------------------------------------------
+# Cambio de rol
+# ---------------------------------------------------------------------------
+
+### Prueba Usuarios pasa a ADMIN → 200 (rol: ADMIN)
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN",
+  "motivo": "Prueba de cambio de rol"
+}
+
+### El mismo cambio otra vez → 200 sin cambios; no deja fila en Auditoria
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN"
+}
+
+### Con su token emitido como CLIENTE, ya lista usuarios → 200 (el rol se lee de la base)
+GET {{base}}/usuarios
+Authorization: Bearer {{loginPrueba.response.body.data.token}}
+
+### Vuelve a CLIENTE → 200 (rol: CLIENTE)
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "CLIENTE"
+}
+
+### Con el mismo token pierde el acceso en el acto → 403 SIN_PERMISO
+GET {{base}}/usuarios
+Authorization: Bearer {{loginPrueba.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# Validaciones
+# ---------------------------------------------------------------------------
+
+### Rol y activo juntos → 400 VALIDACION
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN",
+  "activo": false
+}
+
+### Sin rol ni activo → 400 VALIDACION
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "motivo": "Sin campo que cambiar"
+}
+
+### Activo como texto → 400 VALIDACION
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "activo": "false"
+}
+
+### Motivo solo con espacios → 400 VALIDACION
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN",
+  "motivo": "   "
+}
+
+### Id no numérico → 400 VALIDACION
+PATCH {{base}}/usuarios/abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN"
+}
+
+### Usuario inexistente → 404 NO_ENCONTRADO
+PATCH {{base}}/usuarios/999999
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "ADMIN"
+}
+
+### El admin se quita el rol a sí mismo → 400 VALIDACION
+PATCH {{base}}/usuarios/{{adminId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "rol": "CLIENTE"
+}
+
+### El admin se desactiva a sí mismo → 400 VALIDACION
+PATCH {{base}}/usuarios/{{adminId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "activo": false
+}
+
+# ---------------------------------------------------------------------------
+# Desactivar y activar
+# ---------------------------------------------------------------------------
+
+### Desactivar a Prueba Usuarios → 200 (activo: false)
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "activo": false,
+  "motivo": "Prueba de desactivación"
+}
+
+### Su token deja de funcionar en el acto → 401 NO_AUTENTICADO
+GET {{base}}/auth/yo
+Authorization: Bearer {{loginPrueba.response.body.data.token}}
+
+### Tampoco puede iniciar sesión → 401 NO_AUTENTICADO
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "prueba.usuarios@prueba.local",
+  "password": "Prueba123!"
+}
+
+### Inactivos → 200, incluye a Prueba Usuarios
+GET {{base}}/usuarios?activo=false
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Activar a Prueba Usuarios → 200 (activo: true)
+PATCH {{base}}/usuarios/{{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "activo": true,
+  "motivo": "Prueba de reactivación"
+}
+
+### El mismo token vuelve a funcionar → 200
+GET {{base}}/auth/yo
+Authorization: Bearer {{loginPrueba.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# Auditoría
+# ---------------------------------------------------------------------------
+
+### Auditoría de Prueba Usuarios → 200, 4 filas, las más recientes primero:
+### ACTIVAR (INACTIVO → ACTIVO, "Prueba de reactivación"), DESACTIVAR (ACTIVO → INACTIVO, "Prueba de desactivación"),
+### CAMBIAR_ROL (ADMIN → CLIENTE, motivo null) y CAMBIAR_ROL (CLIENTE → ADMIN, "Prueba de cambio de rol").
+### El pedido sin cambios y los rechazados no agregan filas.
+GET {{base}}/auditoria?entidad=USUARIO&entidadId={{pruebaId}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# ---------------------------------------------------------------------------
+# La misma comprobación en SSMS (UsuarioId debe ser el id del admin):
+#
+#   SELECT Accion, EstadoAnterior, EstadoNuevo, UsuarioId, Motivo, Fecha
+#   FROM Auditoria
+#   WHERE Entidad = 'USUARIO'
+#     AND EntidadId = (SELECT Id FROM Usuario WHERE Correo = N'prueba.usuarios@prueba.local')
+#   ORDER BY Id;
+#
+# Limpieza al terminar (primero la auditoría: la subconsulta necesita al usuario):
+#
+#   DELETE FROM Auditoria
+#   WHERE Entidad = 'USUARIO'
+#     AND EntidadId IN (SELECT Id FROM Usuario WHERE Correo = N'prueba.usuarios@prueba.local');
+#   DELETE FROM Usuario WHERE Correo = N'prueba.usuarios@prueba.local';
+# ---------------------------------------------------------------------------
