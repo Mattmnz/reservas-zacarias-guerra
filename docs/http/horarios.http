@@ -1,0 +1,175 @@
+# Horarios por cancha — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client con adminCorreo y adminPassword
+# (ver auth.http). Ejecutá las peticiones en orden.
+#
+# Los reemplazos se hacen sobre una cancha de prueba (Prueba Horarios), nunca
+# sobre las del seed. Si la cancha ya existe de una corrida anterior, hacé
+# primero la limpieza del final.
+#
+# Limpieza al terminar, en SSMS (Horario primero: su FK impide borrar la cancha):
+#   DELETE FROM Horario WHERE CanchaId IN (SELECT Id FROM Cancha WHERE Nombre LIKE N'Prueba%');
+#   DELETE FROM Auditoria WHERE Entidad = 'CANCHA' AND EntidadId IN (SELECT Id FROM Cancha WHERE Nombre LIKE N'Prueba%');
+#   DELETE FROM Cancha WHERE Nombre LIKE N'Prueba%';
+
+@base = http://localhost:3000/api
+@prueba = {{crearPrueba.response.body.data.id}}
+@sala1 = {{listarSalas.response.body.data[0].id}}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Canchas SALA del seed → 200
+# @name listarSalas
+GET {{base}}/canchas?tipo=SALA
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Horarios de Sala 1 (seed) como cliente → 200, 7 días de 07:00 a 22:00
+GET {{base}}/canchas/{{sala1}}/horarios
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/canchas/{{sala1}}/horarios
+
+### Tipos de cancha → 200
+# @name listarTipos
+GET {{base}}/tipos-cancha
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Crear Prueba Horarios → 201
+# @name crearPrueba
+POST {{base}}/canchas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "nombre": "Prueba Horarios",
+  "tipoCanchaId": {{listarTipos.response.body.data[0].id}}
+}
+
+### Cancha nueva sin horarios → 200 con [] (cerrada todos los días)
+GET {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Reemplazar como cliente → 403 SIN_PERMISO
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [] }
+
+### Reemplazar la semana (domingo cerrado, desordenada a propósito) → 200, ordenada por día y sin el 7
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "dias": [
+    { "diaSemana": 6, "apertura": "08:00", "cierre": "23:00" },
+    { "diaSemana": 1, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 2, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 3, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 4, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 5, "apertura": "00:00", "cierre": "23:00" }
+  ]
+}
+
+### Consultar lo guardado → 200, el mismo resultado que el PUT anterior
+GET {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Día repetido → 400 VALIDACION (dias[1].diaSemana)
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "dias": [
+    { "diaSemana": 1, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 1, "apertura": "08:00", "cierre": "20:00" }
+  ]
+}
+
+### Hora a media hora → 400 VALIDACION (dias[0].apertura)
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [{ "diaSemana": 1, "apertura": "07:30", "cierre": "22:00" }] }
+
+### Cierre 24:00 → 400 VALIDACION (dias[0].cierre)
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [{ "diaSemana": 1, "apertura": "07:00", "cierre": "24:00" }] }
+
+### Apertura igual al cierre → 400 VALIDACION (dias[0])
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [{ "diaSemana": 1, "apertura": "22:00", "cierre": "22:00" }] }
+
+### diaSemana como texto → 400 VALIDACION (dias[0].diaSemana)
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [{ "diaSemana": "1", "apertura": "07:00", "cierre": "22:00" }] }
+
+### Sin dias → 400 VALIDACION
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{}
+
+### Id no numérico → 400 VALIDACION
+PUT {{base}}/canchas/abc/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [] }
+
+### Cancha inexistente → 404 NO_ENCONTRADO
+PUT {{base}}/canchas/999999/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [] }
+
+### Después de los 400: el GET sigue devolviendo la semana válida (nada se modificó)
+GET {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# Cancha inactiva: antes de las dos peticiones siguientes, en SSMS:
+#   UPDATE Cancha SET Activa = 0 WHERE Nombre = N'Prueba Horarios';
+
+### Cancha inactiva como cliente → 404 NO_ENCONTRADO
+GET {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
+### Cancha inactiva como admin: también se puede reemplazar → 200 con []
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{ "dias": [] }
