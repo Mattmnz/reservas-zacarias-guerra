@@ -36,14 +36,14 @@ describe('horarios.controller', () => {
     assert.deepEqual(res.cuerpo, { data: DIAS });
   });
 
-  it('reemplazar pasa el id de la ruta y el cuerpo; responde 200 con { data }', async () => {
+  it('reemplazar pasa el id del usuario, el id de la ruta y el cuerpo; responde 200 con { data }', async () => {
     const reemplazar = mock.method(horariosService, 'reemplazar', async () => DIAS);
     const res = crearRes();
     const body = { dias: DIAS };
 
     await horariosController.reemplazar({ usuario: { id: 1, rol: 'ADMIN' }, params: { id: '3' }, body }, res);
 
-    assert.deepEqual(reemplazar.mock.calls[0].arguments, ['3', body]);
+    assert.deepEqual(reemplazar.mock.calls[0].arguments, [1, '3', body]);
     assert.equal(res.estado, 200);
     assert.deepEqual(res.cuerpo, { data: DIAS });
   });

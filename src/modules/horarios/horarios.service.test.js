@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const db = require('../../config/db');
 const { sql } = db;
 const AppError = require('../../shared/AppError');
+const auditoriaService = require('../auditoria/auditoria.service');
 const canchasService = require('../canchas/canchas.service');
 const horariosService = require('./horarios.service');
 
@@ -64,6 +65,7 @@ beforeEach(() => {
   mock.method(db, 'enTransaccion', conexionProhibida);
   mock.method(canchasService, 'obtener', async () => CANCHA);
   mock.method(canchasService, 'obtenerParaActualizar', async () => CANCHA);
+  mock.method(auditoriaService, 'registrar', async () => {});
 });
 
 afterEach(() => mock.restoreAll());
@@ -106,11 +108,14 @@ describe('listar', () => {
 });
 
 describe('reemplazar', () => {
-  it('bloquea la cancha con la transacción, borra la semana e inserta un día por fila, ordenados', async () => {
-    const tx = crearEjecutorFalso();
+  const ADMIN_ID = 1;
+  const fila = (dia, apertura, cierre) => ({ DiaSemana: dia, Apertura: apertura, Cierre: cierre });
+
+  it('bloquea la cancha, lee la semana actual, borra e inserta un día por fila, ordenados', async () => {
+    const tx = crearEjecutorFalso([]);
     usarTransaccion(tx);
 
-    const resultado = await horariosService.reemplazar('3', {
+    const resultado = await horariosService.reemplazar(ADMIN_ID, '3', {
       dias: [
         { diaSemana: 7, apertura: '08:00', cierre: '20:00' },
         { diaSemana: 1, apertura: '07:00', cierre: '22:00' },
@@ -123,8 +128,9 @@ describe('reemplazar', () => {
     ]);
     assert.deepEqual(canchasService.obtenerParaActualizar.mock.calls[0].arguments, [tx, 3]);
 
-    const [borrado, lunes, domingo] = tx.llamadas;
-    assert.equal(tx.llamadas.length, 3);
+    const [lectura, borrado, lunes, domingo] = tx.llamadas;
+    assert.equal(tx.llamadas.length, 4);
+    assert.match(lectura.texto, /FROM Horario\s+WHERE CanchaId = @canchaId/);
     assert.match(borrado.texto, /DELETE FROM Horario WHERE CanchaId = @canchaId/);
     assert.equal(borrado.inputs.canchaId.valor, 3);
     assert.match(lunes.texto, /TIMEFROMPARTS\(@apertura, 0, 0, 0, 0\)/);
@@ -137,32 +143,108 @@ describe('reemplazar', () => {
     assert.equal(domingo.inputs.dia.valor, 7);
   });
 
+  it('audita CAMBIAR_HORARIO sobre la cancha, con la transacción y el usuario, después de escribir', async () => {
+    const tx = crearEjecutorFalso([]);
+    usarTransaccion(tx);
+    mock.method(auditoriaService, 'registrar', async () => {
+      // Al auditar, la semana nueva ya está escrita: lectura, DELETE y un INSERT.
+      assert.equal(tx.llamadas.length, 3);
+    });
+
+    await horariosService.reemplazar(ADMIN_ID, '3', {
+      dias: [{ diaSemana: 1, apertura: '07:00', cierre: '22:00' }],
+    });
+
+    assert.equal(auditoriaService.registrar.mock.callCount(), 1);
+    const [ejecutor, registro] = auditoriaService.registrar.mock.calls[0].arguments;
+    assert.equal(ejecutor, tx);
+    assert.deepEqual(registro, {
+      entidad: 'CANCHA',
+      entidadId: 3,
+      accion: 'CAMBIAR_HORARIO',
+      estadoAnterior: null,
+      estadoNuevo: null,
+      usuarioId: ADMIN_ID,
+      motivo: 'Lun cerrado → 07:00-22:00',
+    });
+  });
+
+  it('el motivo lista solo los días que cambian, incluidos los que abren y los que cierran', async () => {
+    usarTransaccion(crearEjecutorFalso([fila(1, 7, 22), fila(2, 7, 22), fila(7, 7, 22)]));
+
+    await horariosService.reemplazar(ADMIN_ID, '3', {
+      dias: [
+        { diaSemana: 1, apertura: '08:00', cierre: '20:00' },
+        { diaSemana: 2, apertura: '07:00', cierre: '22:00' },
+        { diaSemana: 6, apertura: '09:00', cierre: '23:00' },
+      ],
+    });
+
+    const { motivo } = auditoriaService.registrar.mock.calls[0].arguments[1];
+    assert.equal(
+      motivo,
+      'Lun 07:00-22:00 → 08:00-20:00; Sáb cerrado → 09:00-23:00; Dom 07:00-22:00 → cerrado',
+    );
+  });
+
+  it('con los 7 días cambiados el motivo cabe en los 250 caracteres de auditoría', async () => {
+    usarTransaccion(crearEjecutorFalso([1, 2, 3, 4, 5, 6, 7].map((d) => fila(d, 10, 11))));
+
+    await horariosService.reemplazar(ADMIN_ID, '3', {
+      dias: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ diaSemana: d, apertura: '00:00', cierre: '23:00' })),
+    });
+
+    const { motivo } = auditoriaService.registrar.mock.calls[0].arguments[1];
+    assert.equal(motivo.length, 215);
+  });
+
+  it('sin cambios respecto de la semana actual: solo la lectura, sin escribir ni auditar', async () => {
+    const tx = crearEjecutorFalso([fila(1, 7, 22), fila(7, 8, 20)]);
+    usarTransaccion(tx);
+
+    const resultado = await horariosService.reemplazar(ADMIN_ID, '3', {
+      dias: [
+        { diaSemana: 7, apertura: '08:00', cierre: '20:00' },
+        { diaSemana: 1, apertura: '07:00', cierre: '22:00' },
+      ],
+    });
+
+    assert.deepEqual(resultado, [
+      { diaSemana: 1, apertura: '07:00', cierre: '22:00' },
+      { diaSemana: 7, apertura: '08:00', cierre: '20:00' },
+    ]);
+    assert.equal(tx.llamadas.length, 1);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+  });
+
   it('acepta los extremos 00:00 y 23:00', async () => {
-    usarTransaccion(crearEjecutorFalso());
-    const resultado = await horariosService.reemplazar('3', {
+    usarTransaccion(crearEjecutorFalso([]));
+    const resultado = await horariosService.reemplazar(ADMIN_ID, '3', {
       dias: [{ diaSemana: 2, apertura: '00:00', cierre: '23:00' }],
     });
     assert.deepEqual(resultado, [{ diaSemana: 2, apertura: '00:00', cierre: '23:00' }]);
   });
 
-  it('dias vacío deja la cancha cerrada: solo el DELETE', async () => {
-    const tx = crearEjecutorFalso();
+  it('dias vacío deja la cancha cerrada: lectura, DELETE y auditoría, sin INSERT', async () => {
+    const tx = crearEjecutorFalso([fila(1, 7, 22)]);
     usarTransaccion(tx);
 
-    assert.deepEqual(await horariosService.reemplazar('3', { dias: [] }), []);
-    assert.equal(tx.llamadas.length, 1);
-    assert.match(tx.llamadas[0].texto, /DELETE/);
+    assert.deepEqual(await horariosService.reemplazar(ADMIN_ID, '3', { dias: [] }), []);
+    assert.equal(tx.llamadas.length, 2);
+    assert.match(tx.llamadas[1].texto, /DELETE/);
+    assert.equal(auditoriaService.registrar.mock.calls[0].arguments[1].motivo, 'Lun 07:00-22:00 → cerrado');
   });
 
-  it('cancha inexistente → 404 NO_ENCONTRADO sin borrar nada', async () => {
+  it('cancha inexistente → 404 NO_ENCONTRADO sin leer ni borrar nada', async () => {
     const tx = crearEjecutorFalso();
     usarTransaccion(tx);
     mock.method(canchasService, 'obtenerParaActualizar', async () => {
       throw new AppError(404, 'NO_ENCONTRADO', 'La cancha no existe');
     });
 
-    await assert.rejects(horariosService.reemplazar('99', { dias: [] }), esNoEncontrado());
+    await assert.rejects(horariosService.reemplazar(ADMIN_ID, '99', { dias: [] }), esNoEncontrado());
     assert.equal(tx.llamadas.length, 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
   });
 
   const DIA_OK = { diaSemana: 1, apertura: '07:00', cierre: '22:00' };
@@ -192,7 +274,7 @@ describe('reemplazar', () => {
 
   for (const [caso, id, cuerpo, mensaje] of invalidos) {
     it(`rechaza ${caso} con 400 VALIDACION sin abrir la transacción`, async () => {
-      await assert.rejects(horariosService.reemplazar(id, cuerpo), esValidacion(mensaje));
+      await assert.rejects(horariosService.reemplazar(ADMIN_ID, id, cuerpo), esValidacion(mensaje));
       assert.equal(db.enTransaccion.mock.callCount(), 0);
     });
   }
