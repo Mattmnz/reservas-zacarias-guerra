@@ -1,11 +1,14 @@
 const db = require('../../config/db');
 const AppError = require('../../shared/AppError');
+const auditoriaService = require('../auditoria/auditoria.service');
 const canchasService = require('../canchas/canchas.service');
 const horariosRepository = require('./horarios.repository');
 
 const INT_MAX = 2147483647;
 // TIME no admite 24:00: la última hora de cierre posible es 23:00.
 const HORA_EN_PUNTO = /^([01]\d|2[0-3]):00$/;
+const ACCION_CAMBIAR_HORARIO = 'CAMBIAR_HORARIO';
+const NOMBRES_DIA = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 function validacion(mensaje) {
   return new AppError(400, 'VALIDACION', mensaje);
@@ -41,6 +44,24 @@ function horaATexto(hora) {
 
 function aDiaPublico({ diaSemana, apertura, cierre }) {
   return { diaSemana, apertura: horaATexto(apertura), cierre: horaATexto(cierre) };
+}
+
+function rango(dia) {
+  return dia ? `${horaATexto(dia.apertura)}-${horaATexto(dia.cierre)}` : 'cerrado';
+}
+
+// Solo los días que cambian: "Lun 07:00-22:00 → 08:00-20:00; Dom cerrado → 07:00-22:00".
+// Con los 7 días cambiados son 215 caracteres: cabe en los 250 del motivo de auditoría.
+function describirCambios(anterior, nueva) {
+  const antes = new Map(anterior.map((d) => [d.diaSemana, d]));
+  const despues = new Map(nueva.map((d) => [d.diaSemana, d]));
+  const cambios = [];
+  for (let dia = 1; dia <= 7; dia++) {
+    const a = rango(antes.get(dia));
+    const b = rango(despues.get(dia));
+    if (a !== b) cambios.push(`${NOMBRES_DIA[dia]} ${a} → ${b}`);
+  }
+  return cambios.join('; ');
 }
 
 // Devuelve la semana con horas enteras, ordenada por día. Un arreglo vacío deja la cancha cerrada.
@@ -82,7 +103,7 @@ async function listar(rol, idTexto) {
 
 // Reemplaza la semana completa. Vale también sobre una cancha inactiva: si se reactiva, rige.
 // Las reservas ya hechas no se tocan; el horario nuevo solo limita las reservas futuras.
-async function reemplazar(idTexto, { dias } = {}) {
+async function reemplazar(usuarioId, idTexto, { dias } = {}) {
   const id = idDeRuta(idTexto);
   const semana = semanaValida(dias);
 
@@ -91,10 +112,26 @@ async function reemplazar(idTexto, { dias } = {}) {
     // no choca con UQ_Horario_CanchaDia al insertar.
     await canchasService.obtenerParaActualizar(tx, id);
 
+    // Se lee dentro de la transacción, después del bloqueo: es la semana que se va a reemplazar.
+    const anterior = await horariosRepository.listarPorCancha(tx, id);
+    const motivo = describirCambios(anterior, semana);
+    // Sin cambios: ni escritura ni auditoría, igual que el PUT de canchas.
+    if (!motivo) return semana.map(aDiaPublico);
+
     await horariosRepository.eliminarPorCancha(tx, id);
     for (const dia of semana) {
       await horariosRepository.insertar(tx, { canchaId: id, ...dia });
     }
+
+    await auditoriaService.registrar(tx, {
+      entidad: auditoriaService.ENTIDADES.CANCHA,
+      entidadId: id,
+      accion: ACCION_CAMBIAR_HORARIO,
+      estadoAnterior: null,
+      estadoNuevo: null,
+      usuarioId,
+      motivo,
+    });
 
     return semana.map(aDiaPublico);
   });

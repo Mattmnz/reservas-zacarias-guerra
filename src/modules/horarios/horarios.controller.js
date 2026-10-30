@@ -5,7 +5,7 @@ async function listar(req, res) {
 }
 
 async function reemplazar(req, res) {
-  res.json({ data: await horariosService.reemplazar(req.params.id, req.body) });
+  res.json({ data: await horariosService.reemplazar(req.usuario.id, req.params.id, req.body) });
 }
 
 module.exports = { listar, reemplazar };
