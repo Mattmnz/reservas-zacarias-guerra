@@ -282,6 +282,16 @@ async function obtenerActiva(ejecutor, canchaId) {
   return aCanchaReducida(cancha);
 }
 
+// Para otros módulos: bloquea la fila de la cancha, activa o no, hasta el commit de la transacción
+// recibida. Así un cambio sobre datos de la cancha se serializa con el de otro admin.
+async function obtenerParaActualizar(ejecutor, canchaId) {
+  if (!esIdValido(canchaId)) throw new TypeError('canchaId: se espera un entero positivo');
+
+  const cancha = await canchasRepository.obtenerPorIdParaActualizar(ejecutor, canchaId);
+  if (!cancha) throw noEncontrada();
+  return cancha;
+}
+
 async function listarActivas(ejecutor, tipoCodigo = null) {
   const canchas = await canchasRepository.listar(ejecutor, { tipoCodigo, incluirInactivas: false });
   return canchas.map(aCanchaReducida);
@@ -297,5 +307,6 @@ module.exports = {
   listarTipos,
   cambiarPrecio,
   obtenerActiva,
+  obtenerParaActualizar,
   listarActivas,
 };
