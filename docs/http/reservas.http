@@ -126,7 +126,6 @@ Content-Type: application/json
 }
 
 ### Fuera de horario (03:00) → debe dar 400 VALIDACION
-# Pendiente #14: hasta que horarios entre en develop, esta petición responde 201.
 POST {{base}}/reservas
 Authorization: Bearer {{tokenCliente}}
 Content-Type: application/json

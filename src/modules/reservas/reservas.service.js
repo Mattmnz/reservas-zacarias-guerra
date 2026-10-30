@@ -1,10 +1,11 @@
 const db = require('../../config/db');
 const AppError = require('../../shared/AppError');
 const { ESTADOS, TIPOS_PAGO } = require('../../shared/constantes');
-const { ahoraNicaragua, parsearFechaLocal, formatearFechaLocal } = require('../../shared/tiempo');
+const { ahoraNicaragua, parsearFechaLocal, formatearFechaLocal, diaSemana } = require('../../shared/tiempo');
 const auditoriaService = require('../auditoria/auditoria.service');
 const notificacionesService = require('../notificaciones/notificaciones.service');
 const canchasService = require('../canchas/canchas.service');
+const horariosService = require('../horarios/horarios.service');
 const reservasRepository = require('./reservas.repository');
 
 const INT_MAX = 2147483647;
@@ -28,8 +29,15 @@ function fechaParaMensaje(fecha) {
   return `${d}/${mes}/${anio} ${hora.slice(0, 5)}`;
 }
 
-// Pendiente #14: completar con horariosService.obtenerDelDia y la regla apertura <= hora && hora + 1 <= cierre.
-async function validarHorario(ejecutor, canchaId, inicio) {}
+// El bloque de una hora tiene que caber entero entre la apertura y el cierre de ese día.
+async function validarHorario(ejecutor, canchaId, inicio) {
+  const h = await horariosService.obtenerDelDia(ejecutor, canchaId, diaSemana(inicio));
+  if (!h) throw validacion('inicio: la cancha está cerrada ese día');
+  const hora = inicio.getUTCHours();
+  if (!(h.apertura <= hora && hora + 1 <= h.cierre)) {
+    throw validacion('inicio: fuera del horario de la cancha');
+  }
+}
 
 async function crear(clienteId, { canchaId, inicio } = {}) {
   const fechaInicio = parsearFechaLocal(inicio, 'inicio');
