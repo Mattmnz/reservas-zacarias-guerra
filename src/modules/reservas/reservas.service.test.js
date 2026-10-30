@@ -7,6 +7,7 @@ const AppError = require('../../shared/AppError');
 const auditoriaService = require('../auditoria/auditoria.service');
 const notificacionesService = require('../notificaciones/notificaciones.service');
 const canchasService = require('../canchas/canchas.service');
+const horariosService = require('../horarios/horarios.service');
 const reservasService = require('./reservas.service');
 
 // Ahora: 2026-10-20 13:00 en Nicaragua.
@@ -62,6 +63,7 @@ beforeEach(() => {
   mock.method(db, 'obtenerPool', conexionProhibida);
   mock.method(db, 'enTransaccion', conexionProhibida);
   mock.method(canchasService, 'obtenerActiva', async () => ({ ...CANCHA }));
+  mock.method(horariosService, 'obtenerDelDia', async () => ({ apertura: 7, cierre: 22 }));
   mock.method(auditoriaService, 'registrar', async () => undefined);
   mock.method(notificacionesService, 'crear', async () => undefined);
 });
@@ -234,4 +236,56 @@ describe('crear: éxito', () => {
   });
 });
 
-test.todo('fuera de horario o día cerrado → VALIDACION (#14)');
+// BASE es el miércoles 2026-10-21 a las 19:00 (diaSemana 3).
+describe('crear: horario', () => {
+  function conHorario(horario) {
+    horariosService.obtenerDelDia.mock.mockImplementation(async () => horario);
+  }
+
+  it('pide el horario del día con la transacción', async () => {
+    const tx = crearEjecutorFalso([], [{ Id: 12 }]);
+    usarTransaccion(tx);
+    await reservasService.crear(5, BASE);
+    assert.deepEqual(horariosService.obtenerDelDia.mock.calls[0].arguments, [tx, 3, 3]);
+  });
+
+  it('día cerrado → 400 VALIDACION sin consultar Reserva, auditar ni notificar', async () => {
+    const tx = crearEjecutorFalso();
+    usarTransaccion(tx);
+    conHorario(null);
+
+    await assert.rejects(reservasService.crear(5, BASE), esAppError(400, 'VALIDACION'));
+    assert.equal(tx.llamadas.length, 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
+
+  const rechazados = [
+    ['antes de la apertura', { apertura: 20, cierre: 22 }],
+    ['exactamente en el cierre', { apertura: 7, cierre: 19 }],
+  ];
+  for (const [caso, horario] of rechazados) {
+    it(`${caso} → 400 VALIDACION`, async () => {
+      const tx = crearEjecutorFalso();
+      usarTransaccion(tx);
+      conHorario(horario);
+
+      await assert.rejects(reservasService.crear(5, BASE), esAppError(400, 'VALIDACION'));
+      assert.equal(tx.llamadas.length, 0);
+    });
+  }
+
+  const aceptados = [
+    ['justo en la apertura', { apertura: 19, cierre: 22 }],
+    ['la última hora válida (cierre − 1)', { apertura: 7, cierre: 20 }],
+  ];
+  for (const [caso, horario] of aceptados) {
+    it(`acepta ${caso}`, async () => {
+      usarTransaccion(crearEjecutorFalso([], [{ Id: 12 }]));
+      conHorario(horario);
+
+      const reserva = await reservasService.crear(5, BASE);
+      assert.equal(reserva.inicio, '2026-10-21T19:00:00');
+    });
+  }
+});
