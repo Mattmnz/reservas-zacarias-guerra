@@ -95,6 +95,28 @@ Content-Type: application/json
 GET {{base}}/canchas/{{prueba}}/horarios
 Authorization: Bearer {{loginCliente.response.body.data.token}}
 
+### Repetir el mismo reemplazo → 200 con la misma semana, sin escribir ni auditar
+PUT {{base}}/canchas/{{prueba}}/horarios
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "dias": [
+    { "diaSemana": 1, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 2, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 3, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 4, "apertura": "07:00", "cierre": "22:00" },
+    { "diaSemana": 5, "apertura": "00:00", "cierre": "23:00" },
+    { "diaSemana": 6, "apertura": "08:00", "cierre": "23:00" }
+  ]
+}
+
+# Auditoría, en SSMS: una sola fila CAMBIAR_HORARIO (el PUT repetido no audita), con
+# el admin como UsuarioId y un motivo "Lun cerrado → 07:00-22:00; ...; Sáb cerrado → 08:00-23:00".
+#   SELECT Accion, UsuarioId, Motivo, Fecha FROM Auditoria
+#   WHERE Entidad = 'CANCHA' AND EntidadId = (SELECT Id FROM Cancha WHERE Nombre = N'Prueba Horarios')
+#   ORDER BY Id;
+
 ### Día repetido → 400 VALIDACION (dias[1].diaSemana)
 PUT {{base}}/canchas/{{prueba}}/horarios
 Authorization: Bearer {{loginAdmin.response.body.data.token}}
@@ -167,7 +189,7 @@ Authorization: Bearer {{loginAdmin.response.body.data.token}}
 GET {{base}}/canchas/{{prueba}}/horarios
 Authorization: Bearer {{loginCliente.response.body.data.token}}
 
-### Cancha inactiva como admin: también se puede reemplazar → 200 con []
+### Cancha inactiva como admin: también se puede reemplazar → 200 con [] (audita el cierre de los 6 días)
 PUT {{base}}/canchas/{{prueba}}/horarios
 Authorization: Bearer {{loginAdmin.response.body.data.token}}
 Content-Type: application/json
