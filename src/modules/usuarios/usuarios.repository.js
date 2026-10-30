@@ -15,6 +15,21 @@ function mapear(fila) {
   };
 }
 
+const COLUMNAS_SIN_HASH = 'Id, Nombre, Correo, Telefono, Rol, Activo, CreadoEn';
+
+function mapearSinHash(fila) {
+  if (!fila) return null;
+  return {
+    id: fila.Id,
+    nombre: fila.Nombre,
+    correo: fila.Correo,
+    telefono: fila.Telefono,
+    rol: fila.Rol,
+    activo: fila.Activo,
+    creadoEn: fila.CreadoEn,
+  };
+}
+
 async function obtenerPorId(ejecutor, id) {
   const resultado = await ejecutor
     .request()
@@ -48,4 +63,51 @@ async function crear(ejecutor, { nombre, correo, telefono, passwordHash, rol, cr
   return resultado.recordset[0].Id;
 }
 
-module.exports = { obtenerPorId, obtenerPorCorreo, crear };
+async function listar(ejecutor, { rol, activo }) {
+  const resultado = await ejecutor
+    .request()
+    .input('rol', sql.VarChar(10), rol)
+    .input('activo', sql.Bit, activo)
+    .query(`
+      SELECT ${COLUMNAS_SIN_HASH}
+      FROM Usuario
+      WHERE (@rol IS NULL OR Rol = @rol)
+        AND (@activo IS NULL OR Activo = @activo)
+      ORDER BY Nombre, Id
+    `);
+  return resultado.recordset.map(mapearSinHash);
+}
+
+async function obtenerPorIdParaActualizar(ejecutor, id) {
+  const resultado = await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .query(`SELECT ${COLUMNAS_SIN_HASH} FROM Usuario WITH (UPDLOCK) WHERE Id = @id`);
+  return mapearSinHash(resultado.recordset[0]);
+}
+
+async function actualizarRol(ejecutor, id, rol) {
+  await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .input('rol', sql.VarChar(10), rol)
+    .query('UPDATE Usuario SET Rol = @rol WHERE Id = @id');
+}
+
+async function actualizarActivo(ejecutor, id, activo) {
+  await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .input('activo', sql.Bit, activo)
+    .query('UPDATE Usuario SET Activo = @activo WHERE Id = @id');
+}
+
+module.exports = {
+  obtenerPorId,
+  obtenerPorCorreo,
+  crear,
+  listar,
+  obtenerPorIdParaActualizar,
+  actualizarRol,
+  actualizarActivo,
+};
