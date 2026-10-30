@@ -622,6 +622,34 @@ describe('obtenerActiva', () => {
   }
 });
 
+describe('obtenerParaActualizar', () => {
+  it('usa el ejecutor recibido con UPDLOCK y devuelve la cancha aunque esté inactiva', async () => {
+    const tx = crearEjecutorFalso([{ ...FILA_SALA, Activa: false }]);
+
+    const cancha = await canchasService.obtenerParaActualizar(tx, 1);
+
+    assert.deepEqual(cancha, { ...CANCHA_SALA, activa: false });
+    const { inputs, texto } = tx.llamadas[0];
+    assert.match(texto, /FROM Cancha c WITH \(UPDLOCK\)/);
+    assert.equal(inputs.id.tipo, sql.Int);
+    assert.equal(inputs.id.valor, 1);
+    assert.equal(db.obtenerPool.mock.callCount(), 0);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+  });
+
+  it('inexistente → 404 NO_ENCONTRADO', async () => {
+    await assert.rejects(canchasService.obtenerParaActualizar(crearEjecutorFalso([]), 1), esNoEncontrado());
+  });
+
+  for (const valor of ['1', 0, 1.5, null]) {
+    it(`canchaId ${JSON.stringify(valor)} → TypeError sin consultar`, async () => {
+      const ejecutor = crearEjecutorFalso();
+      await assert.rejects(canchasService.obtenerParaActualizar(ejecutor, valor), TypeError);
+      assert.equal(ejecutor.llamadas.length, 0);
+    });
+  }
+});
+
 describe('listarActivas', () => {
   it('usa el ejecutor recibido, solo activas y sin filtro de tipo por defecto', async () => {
     const ejecutor = crearEjecutorFalso([FILA_SALA, FILA_CAMPO]);
