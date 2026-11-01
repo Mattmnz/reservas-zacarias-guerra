@@ -1,0 +1,144 @@
+# Reservas — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client con adminCorreo y adminPassword
+# (ver auth.http). Ejecutá las peticiones en orden. Las fechas se generan con la
+# hora de esta máquina, que se asume en hora de Nicaragua.
+#
+# Para volver a correrlo desde cero, limpiá las reservas en SSMS
+# (solo en tu base local, nunca en Azure):
+#
+#   DELETE FROM Notificacion WHERE ReservaId IS NOT NULL;
+#   DELETE FROM Pago;
+#   DELETE FROM Reserva;
+#   DELETE FROM Auditoria WHERE Entidad = 'RESERVA';
+
+@base = http://localhost:3000/api
+@manana = {{$localDatetime "YYYY-MM-DD" 1 d}}
+@tokenCliente = {{loginCliente.response.body.data.token}}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Crear reserva → 201 PAGADA, con un pago CARGO SIM-C-<id>
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### El mismo bloque otra vez → 409 HORARIO_OCUPADO
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### Fecha pasada → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" -1 d}}T19:00:00"
+}
+
+### Hora no en punto → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:30:00"
+}
+
+### Más de 30 días a futuro → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" 31 d}}T19:00:00"
+}
+
+### canchaId como texto → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": "1",
+  "inicio": "{{manana}}T20:00:00"
+}
+
+### Cancha inexistente → 404 NO_ENCONTRADO
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 99999,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### Admin → 403 SIN_PERMISO (solo los clientes reservan)
+POST {{base}}/reservas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T21:00:00"
+}
+
+### Sin token → 401 NO_AUTENTICADO
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T21:00:00"
+}
+
+### Fuera de horario (03:00) → debe dar 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T03:00:00"
+}
+
+### Auditoría de reservas (admin) → incluye las acciones CREAR
+GET {{base}}/auditoria?entidad=RESERVA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Notificaciones del cliente → "Reserva #<id> pagada: ..."
+GET {{base}}/notificaciones
+Authorization: Bearer {{tokenCliente}}
