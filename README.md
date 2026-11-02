@@ -47,3 +47,40 @@ Backend del sistema web de reservas de canchas del Complejo Deportivo Zacarías 
 ```bash
 npm test
 ```
+
+## Con Docker
+
+Levanta SQL Server, prepara la base y arranca la API sin instalar Node ni SQL Server. Sirve como entorno local reproducible y como respaldo de la demo.
+
+### Requisitos
+
+- Docker Desktop con el motor en marcha (WSL 2) y unos 2 GB de RAM libres para SQL Server.
+- `.env` completo, como en la instalación local, más `MSSQL_SA_PASSWORD`.
+- `MSSQL_SA_PASSWORD` y `DB_PASSWORD` cumplen la política de SQL Server: mínimo 8 caracteres con 3 de estos 4: mayúsculas, minúsculas, dígitos y símbolos. Con `DB_PASSWORD` se crea el login de la aplicación dentro del contenedor.
+- Si una contraseña tiene `$`, va entre comillas simples en `.env` (`DB_PASSWORD='...'`): Compose interpreta `$` como variable.
+
+### Levantar
+
+```bash
+docker compose up --build
+```
+
+| Servicio | Qué hace |
+| --- | --- |
+| `db` | SQL Server 2022 Express. La primera vez descarga la imagen (alrededor de 1,5 GB). |
+| `preparar` | Crea la base y el login de `DB_USER`, aplica las migraciones y el seed. Termina con código 0; es idempotente. |
+| `api` | Arranca cuando `preparar` terminó bien. Escucha en `http://localhost:3000`. |
+
+Comprobar:
+
+```bash
+curl http://localhost:3000/api/health
+# {"data":{"db":"ok"}}
+```
+
+### Notas
+
+- `compose.yaml` fija `DB_SERVER=db` (el nombre del servicio): el `.env` de la instalación local no cambia.
+- La API del contenedor y `npm run dev` usan el puerto 3000: no corren a la vez.
+- SSMS se conecta al SQL Server del contenedor en `localhost,14330`, usuario `sa`.
+- `docker compose down` detiene los contenedores y conserva los datos; `docker compose down -v` borra también la base.

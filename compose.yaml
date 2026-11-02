@@ -1,0 +1,56 @@
+# Entorno local completo: SQL Server, preparación de la base (base, login, migraciones, seed) y API.
+# Uso y requisitos: README, sección "Con Docker". Los valores salen del .env de la raíz.
+name: reservas-zg
+
+x-app: &app
+  build: .
+  image: reservas-zg:local
+  # Cada contenedor recibe solo las variables que usa; la contraseña de sa queda en db y preparar.
+  environment: &app-env
+    PORT: "3000"
+    # Dentro de la red de Compose, SQL Server se alcanza por el nombre del servicio.
+    DB_SERVER: db
+    DB_PORT: "1433"
+    DB_NAME: ${DB_NAME:-ZacariasGuerra}
+    DB_USER: ${DB_USER:-zg_app}
+    DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en .env}
+    DB_CONFIAR_CERTIFICADO: "true"
+    JWT_SECRETO: ${JWT_SECRETO:?falta JWT_SECRETO en .env}
+    JWT_EXPIRA: ${JWT_EXPIRA:-8h}
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?falta MSSQL_SA_PASSWORD en .env}
+    ports:
+      # 14330 en el host para no chocar con el SQL Server Express local, que usa 1433.
+      - "14330:1433"
+    volumes:
+      - datos-sql:/var/opt/mssql
+
+  # Corre una vez y termina con código 0. Es idempotente: repetirlo no duplica nada.
+  preparar:
+    <<: *app
+    environment:
+      <<: *app-env
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?falta MSSQL_SA_PASSWORD en .env}
+      SEED_ADMIN_CORREO: ${SEED_ADMIN_CORREO:?falta SEED_ADMIN_CORREO en .env}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?falta SEED_ADMIN_PASSWORD en .env}
+    command: ["sh", "-c", "node scripts/preparar-base.js && node scripts/migrar.js && node scripts/seed.js"]
+    depends_on:
+      - db
+
+  api:
+    <<: *app
+    ports:
+      - "3000:3000"
+    depends_on:
+      preparar:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  datos-sql:
