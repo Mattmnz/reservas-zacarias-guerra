@@ -1,0 +1,114 @@
+# Disponibilidad — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client (ver auth.http). Ejecutá las
+# peticiones en orden, una vez cada una. Las fechas se generan con la hora de
+# esta máquina, que se asume en hora de Nicaragua.
+#
+# Antes de empezar y al terminar, limpiá las reservas en SSMS
+# (solo en tu base local, nunca en Azure):
+#
+#   DELETE FROM Notificacion WHERE ReservaId IS NOT NULL;
+#   DELETE FROM Pago;
+#   DELETE FROM Reserva;
+#   DELETE FROM Auditoria WHERE Entidad = 'RESERVA';
+
+@base = http://localhost:3000/api
+@hoy = {{$localDatetime "YYYY-MM-DD"}}
+@manana = {{$localDatetime "YYYY-MM-DD" 1 d}}
+@tokenCliente = {{loginCliente.response.body.data.token}}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Mañana, solo SALA → 200: Sala 1 a Sala 5, cada una con bloques de 07:00 a 21:00
+# @name dispManana
+GET {{base}}/disponibilidad?fecha={{manana}}&tipo=SALA
+Authorization: Bearer {{tokenCliente}}
+
+### Reservar el primer bloque libre de la primera cancha → 201 PAGADA
+# @name reservaPrueba
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": {{dispManana.response.body.data[0].canchaId}},
+  "inicio": "{{dispManana.response.body.data[0].bloques[0]}}"
+}
+
+### Mañana otra vez → 200: la primera cancha ya no ofrece ese bloque; las demás sí
+GET {{base}}/disponibilidad?fecha={{manana}}&tipo=SALA
+Authorization: Bearer {{tokenCliente}}
+
+### Mañana, solo CAMPO → 200: Campo 1 y Campo 2
+GET {{base}}/disponibilidad?fecha={{manana}}&tipo=CAMPO
+Authorization: Bearer {{tokenCliente}}
+
+### Mañana, sin tipo → 200: las 7 canchas
+GET {{base}}/disponibilidad?fecha={{manana}}
+Authorization: Bearer {{tokenCliente}}
+
+### Tipo inexistente → 200 con []
+GET {{base}}/disponibilidad?fecha={{manana}}&tipo=NADA
+Authorization: Bearer {{tokenCliente}}
+
+### Hoy → 200: solo bloques posteriores a la hora actual (después de las 21:00, bloques vacíos)
+GET {{base}}/disponibilidad?fecha={{hoy}}
+Authorization: Bearer {{tokenCliente}}
+
+### Dentro de 30 días → 200: bloques hasta la hora en punto actual, no después
+GET {{base}}/disponibilidad?fecha={{$localDatetime "YYYY-MM-DD" 30 d}}&tipo=SALA
+Authorization: Bearer {{tokenCliente}}
+
+### Dentro de 31 días → 400 VALIDACION
+GET {{base}}/disponibilidad?fecha={{$localDatetime "YYYY-MM-DD" 31 d}}
+Authorization: Bearer {{tokenCliente}}
+
+### Ayer → 400 VALIDACION
+GET {{base}}/disponibilidad?fecha={{$localDatetime "YYYY-MM-DD" -1 d}}
+Authorization: Bearer {{tokenCliente}}
+
+### Formato inválido → 400 VALIDACION
+GET {{base}}/disponibilidad?fecha=21-10-2026
+Authorization: Bearer {{tokenCliente}}
+
+### Fecha que no existe → 400 VALIDACION
+GET {{base}}/disponibilidad?fecha=2026-02-30
+Authorization: Bearer {{tokenCliente}}
+
+### Sin fecha → 400 VALIDACION
+GET {{base}}/disponibilidad
+Authorization: Bearer {{tokenCliente}}
+
+### Tipo repetido → 400 VALIDACION
+GET {{base}}/disponibilidad?fecha={{manana}}&tipo=SALA&tipo=CAMPO
+Authorization: Bearer {{tokenCliente}}
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/disponibilidad?fecha={{manana}}
+
+# Barrido de no-show al consultar. En SSMS, solo en tu base local, mové la
+# reserva de prueba a dos horas atrás. Con la limpieza del encabezado hecha,
+# es la única reserva y por eso la de Id más alto:
+#
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
+#   UPDATE Reserva
+#   SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())) - 2, 0)
+#   WHERE Id = @id;
+#
+# Ejecutá la petición de abajo y después, en SSMS:
+#
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
+#   SELECT Estado, Monto, MontoPenalizado FROM Reserva WHERE Id = @id;
+#   → NO_SHOW, con MontoPenalizado = Monto
+
+### Consultar dispara el barrido → 200 (la reserva vencida queda NO_SHOW)
+GET {{base}}/disponibilidad?fecha={{hoy}}
+Authorization: Bearer {{tokenCliente}}
