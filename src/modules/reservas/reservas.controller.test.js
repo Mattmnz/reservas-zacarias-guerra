@@ -39,3 +39,21 @@ describe('reservas.controller.crear', () => {
     assert.deepEqual(res.cuerpo, { data: reserva });
   });
 });
+
+const ADMIN = { id: 1, rol: 'ADMIN', nombre: 'Admin' };
+
+for (const accion of ['confirmar', 'registrarAsistencia']) {
+  describe(`reservas.controller.${accion}`, () => {
+    it('pasa el id de la ruta y el admin del token, y responde 200 con { data }', async () => {
+      const reserva = { id: 12, estado: 'CONFIRMADA' };
+      const llamada = mock.method(reservasService, accion, async () => reserva);
+      const res = crearRes();
+
+      await reservasController[accion]({ usuario: ADMIN, params: { id: '12' } }, res);
+
+      assert.deepEqual(llamada.mock.calls[0].arguments, ['12', 1]);
+      assert.equal(res.estado, 200);
+      assert.deepEqual(res.cuerpo, { data: reserva });
+    });
+  });
+}

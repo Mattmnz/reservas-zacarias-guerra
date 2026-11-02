@@ -37,6 +37,7 @@ Content-Type: application/json
 }
 
 ### Crear reserva → 201 PAGADA, con un pago CARGO SIM-C-<id>
+# @name crearReserva
 POST {{base}}/reservas
 Authorization: Bearer {{tokenCliente}}
 Content-Type: application/json
@@ -135,7 +136,47 @@ Content-Type: application/json
   "inicio": "{{manana}}T03:00:00"
 }
 
-### Auditoría de reservas (admin) → incluye las acciones CREAR
+### Confirmar la reserva creada (admin) → 200 CONFIRMADA, con sus pagos
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Confirmarla otra vez → 409 TRANSICION_INVALIDA
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Confirmar como cliente → 403 SIN_PERMISO
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{tokenCliente}}
+
+### Confirmar una reserva inexistente → 404 NO_ENCONTRADO
+PATCH {{base}}/reservas/999999/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Id no numérico → 400 VALIDACION
+PATCH {{base}}/reservas/abc/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Asistencia antes de la ventana (la reserva es mañana) → 409 TRANSICION_INVALIDA
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/asistencia
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# Asistencia exitosa y no-show necesitan una reserva en curso o vencida. En SSMS,
+# solo en tu base local, mové la reserva creada (reemplazá <id>):
+#
+#   -- En curso: empieza en la hora en punto actual → asistencia 200 COMPLETADA.
+#   UPDATE Reserva SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())), 0)
+#   WHERE Id = <id>;
+#
+#   -- Vencida: empezó hace 2 h → la petición de asistencia la barre a NO_SHOW y responde 409.
+#   UPDATE Reserva SET Estado = 'PAGADA', Inicio = DATEADD(HOUR, -2, Inicio) WHERE Id = <id>;
+#
+# Después de cada UPDATE, ejecutá la petición de abajo.
+
+### Registrar asistencia → 200 COMPLETADA (con la reserva en curso)
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/asistencia
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Auditoría de reservas (admin) → incluye CREAR, CONFIRMAR, REGISTRAR_ASISTENCIA y MARCAR_NO_SHOW
 GET {{base}}/auditoria?entidad=RESERVA
 Authorization: Bearer {{loginAdmin.response.body.data.token}}
 
