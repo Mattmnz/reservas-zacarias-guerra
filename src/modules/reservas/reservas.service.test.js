@@ -289,3 +289,261 @@ describe('crear: horario', () => {
     });
   }
 });
+
+// AHORA_NICARAGUA es el martes 2026-10-20 13:00.
+function filaReserva(cambios = {}) {
+  return {
+    Id: 12,
+    ClienteId: 5,
+    CanchaId: 3,
+    Inicio: new Date('2026-10-21T19:00:00Z'),
+    Monto: 600,
+    Estado: 'PAGADA',
+    ...cambios,
+  };
+}
+
+const PAGOS = [
+  { Tipo: 'CARGO', Monto: 600, Referencia: 'SIM-C-12', CreadoEn: new Date('2026-10-19T10:00:00Z') },
+];
+
+function auditoriaEsperada(cambios) {
+  return { entidad: 'RESERVA', entidadId: 12, motivo: null, ...cambios };
+}
+
+describe('barrerNoShow', () => {
+  const VENCIDAS = [
+    { Id: 7, ClienteId: 5, Inicio: new Date('2026-10-20T11:00:00Z'), Estado: 'PAGADA' },
+    { Id: 8, ClienteId: 6, Inicio: new Date('2026-10-20T12:00:00Z'), Estado: 'CONFIRMADA' },
+  ];
+
+  it('con el pool abre su propia transacción y devuelve la cantidad marcada', async () => {
+    const tx = crearEjecutorFalso(VENCIDAS);
+    usarTransaccion(tx);
+
+    assert.equal(await reservasService.barrerNoShow({}), 2);
+    assert.equal(db.enTransaccion.mock.callCount(), 1);
+    assert.equal(auditoriaService.registrar.mock.calls[0].arguments[0], tx);
+  });
+
+  it('con una transacción la usa sin abrir otra', async () => {
+    const tx = Object.setPrototypeOf(crearEjecutorFalso(VENCIDAS), sql.Transaction.prototype);
+
+    assert.equal(await reservasService.barrerNoShow(tx), 2);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+    assert.equal(tx.llamadas.length, 1);
+  });
+
+  it('el UPDATE filtra por estado activo y vencido hace 1 h, y no asigna Activa', async () => {
+    const tx = crearEjecutorFalso([]);
+    usarTransaccion(tx);
+    await reservasService.barrerNoShow({});
+
+    const { texto, inputs } = tx.llamadas[0];
+    // El filtro por estado hace idempotente el barrido: una fila ya marcada no vuelve a salir.
+    assert.match(texto, /WHERE Estado IN \('PAGADA', 'CONFIRMADA'\)/);
+    assert.match(texto, /Inicio <= DATEADD\(HOUR, -1, @ahora\)/);
+    assert.match(texto, /SET Estado = 'NO_SHOW', MontoPenalizado = Monto, ActualizadaEn = @ahora/);
+    assert.doesNotMatch(texto, /Activa/);
+    assert.equal(inputs.ahora.tipo.type, sql.DateTime2);
+    assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+  });
+
+  it('audita como sistema y notifica a cada cliente, sin reembolso', async () => {
+    const tx = crearEjecutorFalso(VENCIDAS);
+    usarTransaccion(tx);
+    await reservasService.barrerNoShow({});
+
+    const comun = { entidad: 'RESERVA', accion: 'MARCAR_NO_SHOW', estadoNuevo: 'NO_SHOW', usuarioId: null, motivo: null };
+    assert.deepEqual(
+      auditoriaService.registrar.mock.calls.map((c) => c.arguments[1]),
+      [
+        { ...comun, entidadId: 7, estadoAnterior: 'PAGADA' },
+        { ...comun, entidadId: 8, estadoAnterior: 'CONFIRMADA' },
+      ],
+    );
+    assert.deepEqual(notificacionesService.crear.mock.calls[1].arguments, [
+      tx,
+      { usuarioId: 6, reservaId: 8, mensaje: 'Reserva #8 marcada como no-show: 20/10/2026 12:00. Sin reembolso.' },
+    ]);
+    // Solo el UPDATE: ningún INSERT en Pago.
+    assert.equal(tx.llamadas.length, 1);
+  });
+
+  it('sin reservas vencidas no audita ni notifica', async () => {
+    usarTransaccion(crearEjecutorFalso([]));
+    assert.equal(await reservasService.barrerNoShow({}), 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
+});
+
+describe('ocupadosEnRango', () => {
+  const DESDE = new Date('2026-10-21T00:00:00Z');
+  const HASTA = new Date('2026-10-22T00:00:00Z');
+
+  it('consulta las activas del rango semiabierto y devuelve { canchaId, inicio }', async () => {
+    const inicio = new Date('2026-10-21T19:00:00Z');
+    const ejecutor = crearEjecutorFalso([{ CanchaId: 3, Inicio: inicio }]);
+
+    assert.deepEqual(await reservasService.ocupadosEnRango(ejecutor, DESDE, HASTA), [{ canchaId: 3, inicio }]);
+    const { texto, inputs } = ejecutor.llamadas[0];
+    assert.match(texto, /WHERE Activa = 1 AND Inicio >= @desde AND Inicio < @hasta/);
+    assert.deepEqual(Object.keys(inputs).sort(), ['desde', 'hasta']);
+  });
+
+  const invalidos = [
+    ['desde inválido', new Date('x'), HASTA],
+    ['hasta como texto', DESDE, '2026-10-22T00:00:00'],
+  ];
+  for (const [caso, desde, hasta] of invalidos) {
+    it(`${caso} → TypeError`, async () => {
+      await assert.rejects(reservasService.ocupadosEnRango(crearEjecutorFalso(), desde, hasta), TypeError);
+    });
+  }
+});
+
+describe('confirmar', () => {
+  for (const id of ['abc', '0', '-1', '1.5', '2147483648', undefined]) {
+    it(`id ${id} → 400 VALIDACION sin tocar la base`, async () => {
+      await assert.rejects(reservasService.confirmar(id, 1), esAppError(400, 'VALIDACION'));
+      assert.equal(db.enTransaccion.mock.callCount(), 0);
+    });
+  }
+
+  it('reserva inexistente → 404 NO_ENCONTRADO', async () => {
+    usarTransaccion(crearEjecutorFalso([]));
+    await assert.rejects(reservasService.confirmar('12', 1), esAppError(404, 'NO_ENCONTRADO'));
+  });
+
+  for (const estado of ['CONFIRMADA', 'COMPLETADA', 'CANCELADA', 'NO_SHOW']) {
+    it(`desde ${estado} → 409 TRANSICION_INVALIDA sin UPDATE`, async () => {
+      const tx = crearEjecutorFalso([filaReserva({ Estado: estado })]);
+      usarTransaccion(tx);
+      await assert.rejects(reservasService.confirmar('12', 1), esAppError(409, 'TRANSICION_INVALIDA'));
+      assert.equal(tx.llamadas.length, 1);
+      assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    });
+  }
+
+  it('reserva que empieza justo ahora → 409 TRANSICION_INVALIDA', async () => {
+    usarTransaccion(crearEjecutorFalso([filaReserva({ Inicio: AHORA_NICARAGUA })]));
+    await assert.rejects(reservasService.confirmar('12', 1), esAppError(409, 'TRANSICION_INVALIDA'));
+  });
+
+  describe('éxito', () => {
+    let tx;
+    let reserva;
+
+    beforeEach(async () => {
+      tx = crearEjecutorFalso([filaReserva()], [], PAGOS);
+      usarTransaccion(tx);
+      reserva = await reservasService.confirmar('12', 1);
+    });
+
+    it('lee con UPDLOCK y actualiza a CONFIRMADA con ActualizadaEn', () => {
+      assert.match(tx.llamadas[0].texto, /FROM Reserva WITH \(UPDLOCK\)/);
+      assert.equal(tx.llamadas[0].inputs.id.valor, 12);
+      const { texto, inputs } = tx.llamadas[1];
+      assert.match(texto, /UPDATE Reserva SET Estado = @estado, ActualizadaEn = @ahora WHERE Id = @id/);
+      assert.equal(inputs.estado.tipo.type, sql.VarChar);
+      assert.equal(inputs.estado.valor, 'CONFIRMADA');
+      assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+    });
+
+    it('audita con el admin y notifica al cliente dentro de la transacción', () => {
+      assert.deepEqual(auditoriaService.registrar.mock.calls[0].arguments, [
+        tx,
+        auditoriaEsperada({ accion: 'CONFIRMAR', estadoAnterior: 'PAGADA', estadoNuevo: 'CONFIRMADA', usuarioId: 1 }),
+      ]);
+      assert.deepEqual(notificacionesService.crear.mock.calls[0].arguments, [
+        tx,
+        { usuarioId: 5, reservaId: 12, mensaje: 'Reserva #12 confirmada: 21/10/2026 19:00' },
+      ]);
+    });
+
+    it('lee los pagos después del UPDATE y responde con el formato de crear', () => {
+      assert.match(tx.llamadas[2].texto, /FROM Pago\s+WHERE ReservaId = @reservaId\s+ORDER BY Id/);
+      assert.deepEqual(reserva, {
+        id: 12,
+        canchaId: 3,
+        inicio: '2026-10-21T19:00:00',
+        monto: 600,
+        estado: 'CONFIRMADA',
+        pagos: [{ tipo: 'CARGO', monto: 600, referencia: 'SIM-C-12', creadoEn: '2026-10-19T10:00:00' }],
+      });
+    });
+  });
+});
+
+describe('registrarAsistencia', () => {
+  // Respuestas en orden: barrido sin filas, lectura, UPDATE y pagos.
+  function preparar(fila) {
+    mock.method(db, 'obtenerPool', async () => ({}));
+    const tx = crearEjecutorFalso([], [fila], [], PAGOS);
+    usarTransaccion(tx);
+    return tx;
+  }
+  const inicioEn = (segundos) => new Date(AHORA_NICARAGUA.getTime() + segundos * 1000);
+
+  it('id inválido → 400 VALIDACION sin barrer', async () => {
+    await assert.rejects(reservasService.registrarAsistencia('x', 1), esAppError(400, 'VALIDACION'));
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+  });
+
+  it('barre los no-show antes de leer la reserva, en otra transacción', async () => {
+    const tx = preparar(filaReserva({ Inicio: inicioEn(0) }));
+    await reservasService.registrarAsistencia('12', 1);
+    assert.match(tx.llamadas[0].texto, /SET Estado = 'NO_SHOW'/);
+    assert.match(tx.llamadas[1].texto, /WITH \(UPDLOCK\)/);
+    assert.equal(db.enTransaccion.mock.callCount(), 2);
+  });
+
+  // Inicio relativo a ahora: positivo = todavía no empezó.
+  const aceptados = [
+    ['15 min antes del inicio', 15 * 60],
+    ['el último segundo del bloque', -(3600 - 1)],
+  ];
+  for (const [caso, segundos] of aceptados) {
+    it(`acepta ${caso}`, async () => {
+      preparar(filaReserva({ Inicio: inicioEn(segundos) }));
+      const reserva = await reservasService.registrarAsistencia('12', 1);
+      assert.equal(reserva.estado, 'COMPLETADA');
+    });
+  }
+
+  const rechazados = [
+    ['15 min + 1 s antes del inicio', 15 * 60 + 1],
+    ['terminado el bloque', -3600],
+  ];
+  for (const [caso, segundos] of rechazados) {
+    it(`${caso} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar(filaReserva({ Inicio: inicioEn(segundos) }));
+      await assert.rejects(reservasService.registrarAsistencia('12', 1), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+
+  for (const estado of ['PAGADA', 'CONFIRMADA']) {
+    it(`desde ${estado} → COMPLETADA, auditado y notificado`, async () => {
+      const tx = preparar(filaReserva({ Estado: estado, Inicio: inicioEn(0) }));
+      await reservasService.registrarAsistencia('12', 1);
+
+      assert.equal(tx.llamadas[2].inputs.estado.valor, 'COMPLETADA');
+      assert.deepEqual(
+        auditoriaService.registrar.mock.calls[0].arguments[1],
+        auditoriaEsperada({ accion: 'REGISTRAR_ASISTENCIA', estadoAnterior: estado, estadoNuevo: 'COMPLETADA', usuarioId: 1 }),
+      );
+      assert.equal(
+        notificacionesService.crear.mock.calls[0].arguments[1].mensaje,
+        'Asistencia registrada en la reserva #12: 20/10/2026 13:00',
+      );
+    });
+  }
+
+  for (const estado of ['COMPLETADA', 'CANCELADA', 'NO_SHOW']) {
+    it(`desde ${estado} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar(filaReserva({ Estado: estado, Inicio: inicioEn(0) }));
+      await assert.rejects(reservasService.registrarAsistencia('12', 1), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+});
