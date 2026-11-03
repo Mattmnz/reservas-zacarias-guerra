@@ -72,3 +72,46 @@ describe('reservas.controller.cancelar', () => {
     assert.deepEqual(res.cuerpo, { data: reserva });
   });
 });
+
+describe('reservas.controller.listarMias', () => {
+  it('pasa el id del token y responde 200 con { data }', async () => {
+    const reservas = [{ id: 12 }];
+    const listarMias = mock.method(reservasService, 'listarMias', async () => reservas);
+    const res = crearRes();
+
+    await reservasController.listarMias({ usuario: USUARIO, query: { estado: 'PAGADA' } }, res);
+
+    assert.deepEqual(listarMias.mock.calls[0].arguments, [5]);
+    assert.equal(res.estado, 200);
+    assert.deepEqual(res.cuerpo, { data: reservas });
+  });
+});
+
+describe('reservas.controller.obtener', () => {
+  it('pasa el id de la ruta y el usuario del token, y responde 200 con { data }', async () => {
+    const reserva = { id: 12 };
+    const obtener = mock.method(reservasService, 'obtener', async () => reserva);
+    const res = crearRes();
+
+    await reservasController.obtener({ usuario: USUARIO, params: { id: '12' } }, res);
+
+    assert.deepEqual(obtener.mock.calls[0].arguments, ['12', USUARIO]);
+    assert.equal(res.estado, 200);
+    assert.deepEqual(res.cuerpo, { data: reserva });
+  });
+});
+
+describe('reservas.controller.listar', () => {
+  it('pasa el query string y responde 200 con { data }', async () => {
+    const reservas = [{ id: 12 }];
+    const listar = mock.method(reservasService, 'listar', async () => reservas);
+    const query = { desde: '2026-10-20', estado: 'PAGADA' };
+    const res = crearRes();
+
+    await reservasController.listar({ usuario: ADMIN, query }, res);
+
+    assert.deepEqual(listar.mock.calls[0].arguments, [query]);
+    assert.equal(res.estado, 200);
+    assert.deepEqual(res.cuerpo, { data: reservas });
+  });
+});

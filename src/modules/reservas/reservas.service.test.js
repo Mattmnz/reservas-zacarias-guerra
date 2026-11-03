@@ -8,6 +8,7 @@ const auditoriaService = require('../auditoria/auditoria.service');
 const notificacionesService = require('../notificaciones/notificaciones.service');
 const canchasService = require('../canchas/canchas.service');
 const horariosService = require('../horarios/horarios.service');
+const usuariosService = require('../usuarios/usuarios.service');
 const reservasService = require('./reservas.service');
 
 // Ahora: 2026-10-20 13:00 en Nicaragua.
@@ -871,4 +872,329 @@ describe('cancelarPorBajaDeCancha', () => {
     assert.equal(auditoriaService.registrar.mock.callCount(), 0);
     assert.equal(notificacionesService.crear.mock.callCount(), 0);
   });
+});
+
+// ─── Consultas (#19) ───
+
+const CLIENTE = Object.freeze({ id: 5, rol: 'CLIENTE', nombre: 'Cliente Uno' });
+const ADMIN = Object.freeze({ id: 1, rol: 'ADMIN', nombre: 'Admin' });
+
+const FILA_PAGADA = Object.freeze({
+  Id: 30, ClienteId: 5, CanchaId: 3, Inicio: new Date('2026-10-21T19:00:00Z'),
+  Monto: 600, Estado: 'PAGADA', MontoPenalizado: null,
+});
+const FILA_CANCELADA = Object.freeze({
+  Id: 31, ClienteId: 6, CanchaId: 6, Inicio: new Date('2026-10-22T08:00:00Z'),
+  Monto: 1200, Estado: 'CANCELADA', MontoPenalizado: 0,
+});
+const FILA_NO_SHOW = Object.freeze({
+  Id: 32, ClienteId: 5, CanchaId: 3, Inicio: new Date('2026-10-19T10:00:00Z'),
+  Monto: 600, Estado: 'NO_SHOW', MontoPenalizado: 600,
+});
+const CREADO = new Date('2026-10-18T09:00:00Z');
+const FILAS_PAGO = Object.freeze([
+  { ReservaId: 30, Tipo: 'CARGO', Monto: 600, Referencia: 'SIM-C-30', CreadoEn: CREADO },
+  { ReservaId: 31, Tipo: 'CARGO', Monto: 1200, Referencia: 'SIM-C-31', CreadoEn: CREADO },
+  { ReservaId: 32, Tipo: 'CARGO', Monto: 600, Referencia: 'SIM-C-32', CreadoEn: CREADO },
+  { ReservaId: 31, Tipo: 'REEMBOLSO', Monto: 1200, Referencia: 'SIM-R-31', CreadoEn: AHORA_NICARAGUA },
+]);
+const CANCHAS = Object.freeze([
+  { id: 3, nombre: 'Sala 3', tipoCodigo: 'SALA', precioHora: 600 },
+  { id: 6, nombre: 'Campo 1', tipoCodigo: 'CAMPO', precioHora: 1200 },
+]);
+const CLIENTES = Object.freeze([
+  { id: 5, nombre: 'Cliente Uno' },
+  { id: 6, nombre: 'Cliente Dos' },
+]);
+
+const cargo = (id, monto) => ({ tipo: 'CARGO', monto, referencia: `SIM-C-${id}`, creadoEn: '2026-10-18T09:00:00' });
+
+const RESPUESTA_PAGADA = Object.freeze({
+  id: 30, canchaId: 3, inicio: '2026-10-21T19:00:00', monto: 600, estado: 'PAGADA', montoPenalizado: null,
+  pagos: [cargo(30, 600)],
+  canchaNombre: 'Sala 3', tipoCodigo: 'SALA',
+});
+const RESPUESTA_CANCELADA = Object.freeze({
+  id: 31, canchaId: 6, inicio: '2026-10-22T08:00:00', monto: 1200, estado: 'CANCELADA', montoPenalizado: 0,
+  pagos: [
+    cargo(31, 1200),
+    { tipo: 'REEMBOLSO', monto: 1200, referencia: 'SIM-R-31', creadoEn: '2026-10-20T13:00:00' },
+  ],
+  canchaNombre: 'Campo 1', tipoCodigo: 'CAMPO',
+});
+const RESPUESTA_NO_SHOW = Object.freeze({
+  id: 32, canchaId: 3, inicio: '2026-10-19T10:00:00', monto: 600, estado: 'NO_SHOW', montoPenalizado: 600,
+  pagos: [cargo(32, 600)],
+  canchaNombre: 'Sala 3', tipoCodigo: 'SALA',
+});
+
+// El barrido usa su propia transacción; la lectura, el pool. El barrido tiene que ocurrir antes de leer.
+function prepararConsulta(...respuestasPool) {
+  const barrido = crearEjecutorFalso([]);
+  const pool = crearEjecutorFalso(...respuestasPool);
+  mock.method(db, 'enTransaccion', async (fn) => {
+    assert.equal(pool.llamadas.length, 0, 'el barrido debe ir antes de cualquier lectura');
+    return fn(barrido);
+  });
+  mock.method(db, 'obtenerPool', async () => pool);
+  return { barrido, pool };
+}
+
+function simularOtrosModulos() {
+  mock.method(canchasService, 'listarPorIds', async () => CANCHAS.map((c) => ({ ...c })));
+  mock.method(usuariosService, 'listarNombresPorIds', async () => CLIENTES.map((u) => ({ ...u })));
+}
+
+function sinTocarLaBase() {
+  assert.equal(db.obtenerPool.mock.callCount(), 0);
+  assert.equal(db.enTransaccion.mock.callCount(), 0);
+}
+
+describe('listarMias', () => {
+  beforeEach(simularOtrosModulos);
+
+  it('barre, lee las del cliente de la más reciente a la más antigua y arma la respuesta sin datos del cliente', async () => {
+    const { barrido, pool } = prepararConsulta([FILA_PAGADA, FILA_NO_SHOW], FILAS_PAGO.filter((p) => p.ReservaId !== 31));
+
+    const reservas = await reservasService.listarMias(5);
+
+    assert.deepEqual(reservas, [RESPUESTA_PAGADA, RESPUESTA_NO_SHOW]);
+    assert.equal(db.enTransaccion.mock.callCount(), 1);
+    assert.match(barrido.llamadas[0].texto, /SET Estado = 'NO_SHOW'/);
+
+    const { texto, inputs } = pool.llamadas[0];
+    assert.match(texto, /FROM Reserva\s+WHERE ClienteId = @clienteId\s+ORDER BY Inicio DESC, Id DESC/);
+    assert.doesNotMatch(texto, /JOIN/);
+    assert.equal(inputs.clienteId.tipo, sql.Int);
+    assert.equal(inputs.clienteId.valor, 5);
+  });
+
+  it('sin N+1: reservas y pagos en dos consultas, canchas en una llamada con ids únicos y sin usuarios', async () => {
+    const { pool } = prepararConsulta([FILA_PAGADA, FILA_NO_SHOW], []);
+
+    await reservasService.listarMias(5);
+
+    assert.equal(pool.llamadas.length, 2);
+    assert.equal(canchasService.listarPorIds.mock.callCount(), 1);
+    assert.deepEqual(canchasService.listarPorIds.mock.calls[0].arguments, [pool, [3]]);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 0);
+  });
+
+  it('sin reservas devuelve [] sin consultar pagos, canchas ni usuarios', async () => {
+    const { pool } = prepararConsulta([]);
+
+    assert.deepEqual(await reservasService.listarMias(5), []);
+    assert.equal(pool.llamadas.length, 1);
+    assert.equal(canchasService.listarPorIds.mock.callCount(), 0);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 0);
+  });
+});
+
+describe('obtener', () => {
+  beforeEach(simularOtrosModulos);
+
+  for (const id of ['abc', '0', '-1', '1.5', '', '2147483648']) {
+    it(`id ${JSON.stringify(id)} → 400 VALIDACION sin tocar la base`, async () => {
+      await assert.rejects(reservasService.obtener(id, CLIENTE), esAppError(400, 'VALIDACION'));
+      sinTocarLaBase();
+    });
+  }
+
+  it('inexistente → 404 NO_ENCONTRADO, después del barrido', async () => {
+    const { pool } = prepararConsulta([]);
+
+    await assert.rejects(reservasService.obtener('99', CLIENTE), esAppError(404, 'NO_ENCONTRADO'));
+    assert.equal(db.enTransaccion.mock.callCount(), 1);
+    assert.equal(pool.llamadas.length, 1);
+    assert.match(pool.llamadas[0].texto, /FROM Reserva WHERE Id = @id/);
+    assert.doesNotMatch(pool.llamadas[0].texto, /UPDLOCK/);
+    assert.equal(pool.llamadas[0].inputs.id.valor, 99);
+  });
+
+  it('ajena para un cliente → 403 SIN_PERMISO sin consultar pagos, canchas ni usuarios', async () => {
+    const { pool } = prepararConsulta([FILA_CANCELADA]);
+
+    await assert.rejects(reservasService.obtener('31', CLIENTE), esAppError(403, 'SIN_PERMISO'));
+    assert.equal(pool.llamadas.length, 1);
+    assert.equal(canchasService.listarPorIds.mock.callCount(), 0);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 0);
+  });
+
+  it('propia para el cliente → la reserva con pagos y cancha, sin datos del cliente', async () => {
+    const { pool } = prepararConsulta([FILA_PAGADA], [FILAS_PAGO[0]]);
+
+    assert.deepEqual(await reservasService.obtener('30', CLIENTE), RESPUESTA_PAGADA);
+    assert.equal(pool.llamadas.length, 2);
+    assert.equal(pool.llamadas[1].inputs.ids.valor, '[30]');
+    assert.deepEqual(canchasService.listarPorIds.mock.calls[0].arguments, [pool, [3]]);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 0);
+  });
+
+  it('para el admin → cualquier reserva, con clienteId y clienteNombre', async () => {
+    const { pool } = prepararConsulta([FILA_CANCELADA], FILAS_PAGO.filter((p) => p.ReservaId === 31));
+    mock.method(usuariosService, 'listarNombresPorIds', async () => [{ id: 6, nombre: 'Cliente Dos' }]);
+
+    const reserva = await reservasService.obtener('31', ADMIN);
+
+    assert.deepEqual(reserva, { ...RESPUESTA_CANCELADA, clienteId: 6, clienteNombre: 'Cliente Dos' });
+    assert.deepEqual(usuariosService.listarNombresPorIds.mock.calls[0].arguments, [pool, [6]]);
+  });
+});
+
+describe('listar (admin)', () => {
+  beforeEach(simularOtrosModulos);
+
+  it('sin N+1: barrido, reservas y pagos en dos consultas, una llamada a canchas y una a usuarios con ids únicos', async () => {
+    const { pool } = prepararConsulta([FILA_NO_SHOW, FILA_PAGADA, FILA_CANCELADA], FILAS_PAGO);
+
+    const reservas = await reservasService.listar({});
+
+    assert.equal(db.enTransaccion.mock.callCount(), 1);
+    assert.equal(pool.llamadas.length, 2);
+    assert.equal(canchasService.listarPorIds.mock.callCount(), 1);
+    assert.deepEqual(canchasService.listarPorIds.mock.calls[0].arguments, [pool, [3, 6]]);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 1);
+    assert.deepEqual(usuariosService.listarNombresPorIds.mock.calls[0].arguments, [pool, [5, 6]]);
+
+    // Los pagos se piden en una sola consulta, con todos los ids en un único parámetro JSON.
+    const pagos = pool.llamadas[1];
+    assert.deepEqual(Object.keys(pagos.inputs), ['ids']);
+    assert.equal(pagos.inputs.ids.tipo.type, sql.NVarChar);
+    assert.equal(pagos.inputs.ids.valor, '[32,30,31]');
+    assert.match(pagos.texto, /WHERE ReservaId IN \(SELECT CAST\(value AS INT\) FROM OPENJSON\(@ids\)\)/);
+    assert.match(pagos.texto, /ORDER BY Id/);
+
+    // Mismo orden que la base; pagos agrupados por reserva y con datos de cliente.
+    assert.deepEqual(reservas, [
+      { ...RESPUESTA_NO_SHOW, clienteId: 5, clienteNombre: 'Cliente Uno' },
+      { ...RESPUESTA_PAGADA, clienteId: 5, clienteNombre: 'Cliente Uno' },
+      { ...RESPUESTA_CANCELADA, clienteId: 6, clienteNombre: 'Cliente Dos' },
+    ]);
+  });
+
+  it('sin reservas devuelve [] sin consultar pagos, canchas ni usuarios', async () => {
+    const { pool } = prepararConsulta([]);
+
+    assert.deepEqual(await reservasService.listar({}), []);
+    assert.equal(pool.llamadas.length, 1);
+    assert.equal(canchasService.listarPorIds.mock.callCount(), 0);
+    assert.equal(usuariosService.listarNombresPorIds.mock.callCount(), 0);
+  });
+
+  it('la consulta solo lee Reserva, en orden de agenda y con filtros opcionales', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({});
+
+    const { texto } = pool.llamadas[0];
+    assert.doesNotMatch(texto, /JOIN|Cancha c|Usuario/);
+    assert.match(texto, /\(@desde IS NULL OR Inicio >= @desde\)/);
+    assert.match(texto, /\(@hasta IS NULL OR Inicio < @hasta\)/);
+    assert.match(texto, /\(@canchaId IS NULL OR CanchaId = @canchaId\)/);
+    assert.match(texto, /\(@estado IS NULL OR Estado = @estado\)/);
+    assert.match(texto, /ORDER BY Inicio, Id\s+OPTION \(RECOMPILE\)/);
+  });
+
+  for (const [caso, consulta] of [
+    ['sin consulta', undefined],
+    ['sin filtros', {}],
+    ['filtros vacíos', { desde: '', hasta: '', canchaId: '', estado: '' }],
+  ]) {
+    it(`${caso} → todos los filtros en null`, async () => {
+      const { pool } = prepararConsulta([]);
+      await reservasService.listar(consulta);
+
+      const { inputs } = pool.llamadas[0];
+      assert.equal(inputs.desde.valor, null);
+      assert.equal(inputs.hasta.valor, null);
+      assert.equal(inputs.canchaId.valor, null);
+      assert.equal(inputs.estado.valor, null);
+    });
+  }
+
+  it('desde = hasta → ese día completo: [00:00, 00:00 del día siguiente)', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({ desde: '2026-10-21', hasta: '2026-10-21' });
+
+    const { inputs } = pool.llamadas[0];
+    assert.equal(inputs.desde.tipo.type, sql.DateTime2);
+    assert.equal(inputs.desde.valor.toISOString(), '2026-10-21T00:00:00.000Z');
+    assert.equal(inputs.hasta.tipo.type, sql.DateTime2);
+    assert.equal(inputs.hasta.valor.toISOString(), '2026-10-22T00:00:00.000Z');
+  });
+
+  it('hasta inclusivo a fin de mes pasa al primer día del mes siguiente', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({ desde: '2026-10-01', hasta: '2026-10-31' });
+
+    assert.equal(pool.llamadas[0].inputs.hasta.valor.toISOString(), '2026-11-01T00:00:00.000Z');
+  });
+
+  it('solo desde → sin límite superior', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({ desde: '2026-10-21' });
+
+    const { inputs } = pool.llamadas[0];
+    assert.equal(inputs.desde.valor.toISOString(), '2026-10-21T00:00:00.000Z');
+    assert.equal(inputs.hasta.valor, null);
+  });
+
+  it('solo hasta → sin límite inferior', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({ hasta: '2026-10-21' });
+
+    const { inputs } = pool.llamadas[0];
+    assert.equal(inputs.desde.valor, null);
+    assert.equal(inputs.hasta.valor.toISOString(), '2026-10-22T00:00:00.000Z');
+  });
+
+  it('canchaId y estado → Int y VarChar(12)', async () => {
+    const { pool } = prepararConsulta([]);
+    await reservasService.listar({ canchaId: '3', estado: 'CANCELADA' });
+
+    const { inputs } = pool.llamadas[0];
+    assert.equal(inputs.canchaId.tipo, sql.Int);
+    assert.equal(inputs.canchaId.valor, 3);
+    assert.equal(inputs.estado.tipo.type, sql.VarChar);
+    assert.equal(inputs.estado.tipo.length, 12);
+    assert.equal(inputs.estado.valor, 'CANCELADA');
+  });
+
+  for (const estado of ['PAGADA', 'CONFIRMADA', 'COMPLETADA', 'CANCELADA', 'NO_SHOW']) {
+    it(`acepta estado ${estado}`, async () => {
+      const { pool } = prepararConsulta([]);
+      await reservasService.listar({ estado });
+      assert.equal(pool.llamadas[0].inputs.estado.valor, estado);
+    });
+  }
+
+  const invalidos = [
+    ['desde con otro formato', { desde: '20/10/2026' }, /^desde: se espera YYYY-MM-DD/],
+    ['desde con hora', { desde: '2026-10-20T00:00:00' }, /^desde: se espera YYYY-MM-DD/],
+    ['desde inexistente', { desde: '2026-02-30' }, /^desde: no es una fecha del calendario/],
+    ['hasta con mes 13', { hasta: '2026-13-01' }, /^hasta: no es una fecha del calendario/],
+    ['hasta sin ceros', { hasta: '2026-1-5' }, /^hasta: se espera YYYY-MM-DD/],
+    ['desde posterior a hasta', { desde: '2026-10-22', hasta: '2026-10-21' }, /^desde: no puede ser posterior a hasta/],
+    ['canchaId 0', { canchaId: '0' }, /^canchaId:/],
+    ['canchaId negativo', { canchaId: '-1' }, /^canchaId:/],
+    ['canchaId no numérico', { canchaId: 'abc' }, /^canchaId:/],
+    ['canchaId decimal', { canchaId: '1.5' }, /^canchaId:/],
+    ['canchaId fuera de INT', { canchaId: '2147483648' }, /^canchaId:/],
+    ['estado desconocido', { estado: 'PENDIENTE' }, /^estado:/],
+    ['estado en minúsculas', { estado: 'pagada' }, /^estado:/],
+    ['desde repetido', { desde: ['2026-10-20', '2026-10-21'] }, /^desde:/],
+    ['hasta repetido', { hasta: ['2026-10-20', '2026-10-21'] }, /^hasta:/],
+    ['canchaId repetido', { canchaId: ['1', '2'] }, /^canchaId:/],
+    ['estado repetido', { estado: ['PAGADA', 'CANCELADA'] }, /^estado:/],
+  ];
+
+  for (const [caso, consulta, mensaje] of invalidos) {
+    it(`rechaza ${caso} con 400 VALIDACION sin tocar la base`, async () => {
+      await assert.rejects(reservasService.listar(consulta), (err) => {
+        assert.ok(esAppError(400, 'VALIDACION')(err), `se esperaba 400 VALIDACION y llegó ${err}`);
+        assert.match(err.message, mensaje);
+        return true;
+      });
+      sinTocarLaBase();
+    });
+  }
 });
