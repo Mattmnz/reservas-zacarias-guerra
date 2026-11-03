@@ -1,13 +1,13 @@
 const db = require('../../config/db');
 const AppError = require('../../shared/AppError');
-const { ESTADOS, TIPOS_PAGO } = require('../../shared/constantes');
+const { ESTADOS, ROLES, TIPOS_PAGO } = require('../../shared/constantes');
 const { ahoraNicaragua, parsearFechaLocal, formatearFechaLocal, diaSemana } = require('../../shared/tiempo');
 const auditoriaService = require('../auditoria/auditoria.service');
 const notificacionesService = require('../notificaciones/notificaciones.service');
 const canchasService = require('../canchas/canchas.service');
 const horariosService = require('../horarios/horarios.service');
 const reservasRepository = require('./reservas.repository');
-const { ACCIONES, puedeTransicionar, estadoResultante } = require('./reglas');
+const { ACCIONES, puedeTransicionar, estadoResultante, calcularCancelacion } = require('./reglas');
 
 const INT_MAX = 2147483647;
 const MAX_ANTICIPACION_MS = 30 * 24 * 3600 * 1000;
@@ -16,6 +16,8 @@ const MS_1_HORA = 3600 * 1000;
 // Violación de índice único (2601) o de restricción UNIQUE (2627).
 const ERRORES_UNICOS = [2601, 2627];
 const ACCION_CREAR = 'CREAR';
+// 150 deja lugar al prefijo de penalización dentro de los 250 de Auditoria.Motivo.
+const MOTIVO_MAX = 150;
 
 function validacion(mensaje) {
   return new AppError(400, 'VALIDACION', mensaje);
@@ -37,13 +39,14 @@ function fechaParaMensaje(fecha) {
 }
 
 // Formato común de la reserva en las respuestas de crear, confirmar, asistencia y cancelar.
-function aRespuesta({ id, canchaId, inicio, monto, estado }, pagos) {
+function aRespuesta({ id, canchaId, inicio, monto, estado, montoPenalizado }, pagos) {
   return {
     id,
     canchaId,
     inicio: formatearFechaLocal(inicio),
     monto,
     estado,
+    montoPenalizado,
     pagos: pagos.map(({ tipo, monto: montoPago, referencia, creadoEn }) => ({
       tipo,
       monto: montoPago,
@@ -127,7 +130,7 @@ async function crear(clienteId, { canchaId, inicio } = {}) {
       });
 
       return aRespuesta(
-        { id, canchaId, inicio: fechaInicio, monto, estado: ESTADOS.PAGADA },
+        { id, canchaId, inicio: fechaInicio, monto, estado: ESTADOS.PAGADA, montoPenalizado: null },
         [{ ...pago, creadoEn: ahora }],
       );
     }, db.sql.ISOLATION_LEVEL.READ_COMMITTED);
@@ -239,4 +242,138 @@ async function registrarAsistencia(idTexto, adminId) {
   });
 }
 
-module.exports = { crear, confirmar, registrarAsistencia, barrerNoShow, ocupadosEnRango };
+function motivoValido(valor) {
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor !== 'string' || !valor.trim()) {
+    throw validacion('motivo: si se envía, debe ser texto no vacío');
+  }
+  const motivo = valor.trim();
+  if (motivo.length > MOTIVO_MAX) {
+    throw validacion(`motivo: máximo ${MOTIVO_MAX} caracteres`);
+  }
+  return motivo;
+}
+
+function textoPenalizacion({ porcentajePenalizacion, penalizacionCentavos, reembolsoCentavos }) {
+  const penalizacion = (penalizacionCentavos / 100).toFixed(2);
+  const reembolso = (reembolsoCentavos / 100).toFixed(2);
+  return `Penalización ${porcentajePenalizacion} %: C$ ${penalizacion}; reembolso: C$ ${reembolso}.`;
+}
+
+function motivoAuditoria(calculo, motivo) {
+  const prefijo = textoPenalizacion(calculo);
+  return motivo ? `${prefijo} Motivo: ${motivo}` : prefijo;
+}
+
+async function cancelar(idTexto, usuario, { motivo } = {}) {
+  const id = parsearId(idTexto);
+  const motivoLimpio = motivoValido(motivo);
+  await barrerNoShow(await db.obtenerPool());
+
+  return db.enTransaccion(async (tx) => {
+    const reserva = await reservasRepository.obtenerParaActualizar(tx, id);
+    if (!reserva) throw new AppError(404, 'NO_ENCONTRADO', 'La reserva no existe');
+    // El dueño se verifica antes que el estado: una reserva ajena no revela cómo está.
+    if (usuario.rol !== ROLES.ADMIN && reserva.clienteId !== usuario.id) {
+      throw new AppError(403, 'SIN_PERMISO', 'Solo podés cancelar tus propias reservas');
+    }
+    // El "ahora" se toma después de obtener el bloqueo, que puede haber esperado a otra transacción.
+    const ahora = ahoraNicaragua();
+    if (!puedeTransicionar(reserva.estado, ACCIONES.CANCELAR)) {
+      throw transicionInvalida(`No se puede cancelar una reserva ${reserva.estado}`);
+    }
+    if (reserva.inicio <= ahora) throw transicionInvalida('La reserva ya empezó: no se puede cancelar');
+
+    const calculo = calcularCancelacion(Math.round(reserva.monto * 100), reserva.inicio, ahora);
+    const montoPenalizado = calculo.penalizacionCentavos / 100;
+    await reservasRepository.cancelar(tx, { id, montoPenalizado, ahora });
+    if (calculo.reembolsoCentavos > 0) {
+      await reservasRepository.insertarPago(tx, {
+        reservaId: id,
+        tipo: TIPOS_PAGO.REEMBOLSO,
+        monto: calculo.reembolsoCentavos / 100,
+        referencia: `SIM-R-${id}`,
+        creadoEn: ahora,
+      });
+    }
+
+    await auditoriaService.registrar(tx, {
+      entidad: auditoriaService.ENTIDADES.RESERVA,
+      entidadId: id,
+      accion: ACCIONES.CANCELAR,
+      estadoAnterior: reserva.estado,
+      estadoNuevo: ESTADOS.CANCELADA,
+      usuarioId: usuario.id,
+      motivo: motivoAuditoria(calculo, motivoLimpio),
+    });
+    await notificacionesService.crear(tx, {
+      usuarioId: reserva.clienteId,
+      reservaId: id,
+      mensaje: `Reserva #${id} cancelada: ${fechaParaMensaje(reserva.inicio)}. ${textoPenalizacion(calculo)}`,
+    });
+
+    const pagos = await reservasRepository.listarPagos(tx, id);
+    return aRespuesta({ ...reserva, estado: ESTADOS.CANCELADA, montoPenalizado }, pagos);
+  });
+}
+
+function exigirId(valor, campo) {
+  // Invariante interna: quien llama es otro service, no el cliente.
+  if (!Number.isInteger(valor) || valor <= 0 || valor > INT_MAX) {
+    throw new TypeError(`${campo}: se espera un entero positivo`);
+  }
+}
+
+async function contarFuturasActivas(ejecutor, canchaId) {
+  exigirId(canchaId, 'canchaId');
+  return reservasRepository.contarFuturasActivas(ejecutor, canchaId, ahoraNicaragua());
+}
+
+// Baja de cancha (#20): reembolso del 100 % de las reservas futuras, dentro de la transacción de la baja.
+async function cancelarPorBajaDeCancha(tx, canchaId, adminId) {
+  if (!(tx instanceof db.sql.Transaction)) {
+    throw new TypeError('tx: se espera la transacción de la baja de cancha');
+  }
+  exigirId(canchaId, 'canchaId');
+  exigirId(adminId, 'adminId');
+
+  const ahora = ahoraNicaragua();
+  const canceladas = await reservasRepository.cancelarFuturasDeCancha(tx, canchaId, ahora);
+  for (const r of canceladas) {
+    const montoCentavos = Math.round(r.monto * 100);
+    const calculo = { porcentajePenalizacion: 0, penalizacionCentavos: 0, reembolsoCentavos: montoCentavos };
+    await reservasRepository.insertarPago(tx, {
+      reservaId: r.id,
+      tipo: TIPOS_PAGO.REEMBOLSO,
+      monto: montoCentavos / 100,
+      referencia: `SIM-R-${r.id}`,
+      creadoEn: ahora,
+    });
+    await auditoriaService.registrar(tx, {
+      entidad: auditoriaService.ENTIDADES.RESERVA,
+      entidadId: r.id,
+      accion: ACCIONES.CANCELAR,
+      estadoAnterior: r.estadoAnterior,
+      estadoNuevo: ESTADOS.CANCELADA,
+      usuarioId: adminId,
+      motivo: motivoAuditoria(calculo, 'baja de la cancha'),
+    });
+    await notificacionesService.crear(tx, {
+      usuarioId: r.clienteId,
+      reservaId: r.id,
+      mensaje: `Reserva #${r.id} cancelada por baja de la cancha: ${fechaParaMensaje(r.inicio)}. Reembolso total: C$ ${(montoCentavos / 100).toFixed(2)}`,
+    });
+  }
+  return canceladas.length;
+}
+
+module.exports = {
+  crear,
+  confirmar,
+  registrarAsistencia,
+  cancelar,
+  barrerNoShow,
+  ocupadosEnRango,
+  contarFuturasActivas,
+  cancelarPorBajaDeCancha,
+};
