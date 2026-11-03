@@ -52,7 +52,7 @@ async function obtenerParaActualizar(ejecutor, id) {
     .request()
     .input('id', sql.Int, id)
     .query(`
-      SELECT Id, ClienteId, CanchaId, Inicio, Monto, Estado
+      SELECT Id, ClienteId, CanchaId, Inicio, Monto, Estado, MontoPenalizado
       FROM Reserva WITH (UPDLOCK)
       WHERE Id = @id
     `);
@@ -65,6 +65,7 @@ async function obtenerParaActualizar(ejecutor, id) {
     inicio: fila.Inicio,
     monto: fila.Monto,
     estado: fila.Estado,
+    montoPenalizado: fila.MontoPenalizado,
   };
 }
 
@@ -130,6 +131,56 @@ async function ocupadosEnRango(ejecutor, desde, hasta) {
   return resultado.recordset.map((f) => ({ canchaId: f.CanchaId, inicio: f.Inicio }));
 }
 
+// Estado y Activa en la misma sentencia: CK_Reserva_Activa exige que cambien juntos.
+async function cancelar(ejecutor, { id, montoPenalizado, ahora }) {
+  await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .input('montoPenalizado', sql.Decimal(10, 2), montoPenalizado)
+    .input('ahora', sql.DateTime2(0), ahora)
+    .query(`
+      UPDATE Reserva
+      SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = @montoPenalizado, ActualizadaEn = @ahora
+      WHERE Id = @id
+    `);
+}
+
+// Activa = 1 literal, igual que en bloquearSlot, para usar el índice filtrado.
+async function contarFuturasActivas(ejecutor, canchaId, ahora) {
+  const resultado = await ejecutor
+    .request()
+    .input('canchaId', sql.Int, canchaId)
+    .input('ahora', sql.DateTime2(0), ahora)
+    .query(`
+      SELECT COUNT(*) AS Cantidad FROM Reserva
+      WHERE Activa = 1 AND CanchaId = @canchaId
+        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > @ahora
+    `);
+  return resultado.recordset[0].Cantidad;
+}
+
+// Mismo filtro que contarFuturasActivas; OUTPUT devuelve lo necesario para reembolsar, auditar y notificar.
+async function cancelarFuturasDeCancha(ejecutor, canchaId, ahora) {
+  const resultado = await ejecutor
+    .request()
+    .input('canchaId', sql.Int, canchaId)
+    .input('ahora', sql.DateTime2(0), ahora)
+    .query(`
+      UPDATE Reserva
+      SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = 0, ActualizadaEn = @ahora
+      OUTPUT inserted.Id, inserted.ClienteId, inserted.Inicio, inserted.Monto, deleted.Estado
+      WHERE Activa = 1 AND CanchaId = @canchaId
+        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > @ahora
+    `);
+  return resultado.recordset.map((f) => ({
+    id: f.Id,
+    clienteId: f.ClienteId,
+    inicio: f.Inicio,
+    monto: f.Monto,
+    estadoAnterior: f.Estado,
+  }));
+}
+
 module.exports = {
   bloquearSlot,
   insertar,
@@ -139,4 +190,7 @@ module.exports = {
   listarPagos,
   marcarNoShowVencidas,
   ocupadosEnRango,
+  cancelar,
+  contarFuturasActivas,
+  cancelarFuturasDeCancha,
 };
