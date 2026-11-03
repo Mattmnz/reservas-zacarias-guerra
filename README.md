@@ -57,6 +57,7 @@ Levanta SQL Server, prepara la base y arranca la API sin instalar Node ni SQL Se
 - Docker Desktop con el motor en marcha (WSL 2) y unos 2 GB de RAM libres para SQL Server.
 - `.env` completo, como en la instalación local, más `MSSQL_SA_PASSWORD`.
 - `MSSQL_SA_PASSWORD` y `DB_PASSWORD` cumplen la política de SQL Server: mínimo 8 caracteres con 3 de estos 4: mayúsculas, minúsculas, dígitos y símbolos. Con `DB_PASSWORD` se crea el login de la aplicación dentro del contenedor.
+- Si cambiás `DB_PASSWORD` para que cumpla la política, el SQL Server local conserva la anterior y `npm run dev` deja de conectar. Cambiala también ahí, en SSMS contra la instancia local: `ALTER LOGIN zg_app WITH PASSWORD = '...';` (con tu `DB_USER` si no es `zg_app`).
 - Si una contraseña tiene `$`, va entre comillas simples en `.env` (`DB_PASSWORD='...'`): Compose interpreta `$` como variable.
 
 ### Levantar
@@ -67,7 +68,7 @@ docker compose up --build
 
 | Servicio | Qué hace |
 | --- | --- |
-| `db` | SQL Server 2022 Express. La primera vez descarga la imagen (alrededor de 1,5 GB). |
+| `db` | SQL Server 2022 Express, en la versión fijada en `compose.yaml` (`2022-CU27-GDR1-ubuntu-22.04`). La primera vez descarga la imagen (alrededor de 1,5 GB). |
 | `preparar` | Crea la base y el login de `DB_USER`, aplica las migraciones y el seed. Termina con código 0; es idempotente. |
 | `api` | Arranca cuando `preparar` terminó bien. Escucha en `http://localhost:3000`. |
 
