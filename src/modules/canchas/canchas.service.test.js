@@ -673,3 +673,63 @@ describe('listarActivas', () => {
     assert.equal(ejecutor.llamadas[0].inputs.tipo.valor, 'CAMPO');
   });
 });
+
+describe('listarPorIds', () => {
+  it('hace una sola consulta con los ids en un único parámetro JSON y devuelve la forma reducida', async () => {
+    const ejecutor = crearEjecutorFalso([FILA_SALA, FILA_CAMPO]);
+
+    const canchas = await canchasService.listarPorIds(ejecutor, [6, 1]);
+
+    assert.deepEqual(canchas, [
+      { id: 1, nombre: 'Sala 1', tipoCodigo: 'SALA', precioHora: 600 },
+      { id: 6, nombre: 'Campo 1', tipoCodigo: 'CAMPO', precioHora: 1200 },
+    ]);
+    assert.equal(ejecutor.llamadas.length, 1);
+    const { inputs, texto } = ejecutor.llamadas[0];
+    assert.deepEqual(Object.keys(inputs), ['ids']);
+    assert.equal(inputs.ids.tipo.type, sql.NVarChar);
+    assert.equal(inputs.ids.valor, '[6,1]');
+    assert.match(texto, /WHERE c\.Id IN \(SELECT CAST\(value AS INT\) FROM OPENJSON\(@ids\)\)/);
+    assert.match(texto, /ORDER BY c\.Id/);
+  });
+
+  it('incluye canchas inactivas: el SQL no filtra por Activa', async () => {
+    const ejecutor = crearEjecutorFalso([{ ...FILA_SALA, Activa: false }]);
+
+    const canchas = await canchasService.listarPorIds(ejecutor, [1]);
+
+    assert.deepEqual(canchas, [{ id: 1, nombre: 'Sala 1', tipoCodigo: 'SALA', precioHora: 600 }]);
+    assert.doesNotMatch(ejecutor.llamadas[0].texto, /Activa = 1/);
+  });
+
+  it('usa el ejecutor recibido, sin pedir el pool ni abrir transacción', async () => {
+    const ejecutor = crearEjecutorFalso([]);
+    await canchasService.listarPorIds(ejecutor, [1]);
+    assert.equal(db.obtenerPool.mock.callCount(), 0);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+  });
+
+  it('con un arreglo vacío devuelve [] sin consultar', async () => {
+    const ejecutor = crearEjecutorFalso();
+    assert.deepEqual(await canchasService.listarPorIds(ejecutor, []), []);
+    assert.equal(ejecutor.llamadas.length, 0);
+  });
+
+  const invalidos = [
+    ['no arreglo', 1],
+    ['ausente', undefined],
+    ['id 0', [0]],
+    ['id negativo', [-1]],
+    ['id decimal', [1.5]],
+    ['id como texto', ['1']],
+    ['id fuera de INT', [2147483648]],
+  ];
+
+  for (const [caso, ids] of invalidos) {
+    it(`rechaza ${caso} con TypeError sin consultar`, async () => {
+      const ejecutor = crearEjecutorFalso();
+      await assert.rejects(canchasService.listarPorIds(ejecutor, ids), TypeError);
+      assert.equal(ejecutor.llamadas.length, 0);
+    });
+  }
+});

@@ -144,6 +144,21 @@ async function actualizarPrecio(ejecutor, id, precioHora) {
   return mapearTipo(resultado.recordset[0]);
 }
 
+// Activas o no. Un solo parámetro JSON con los ids: sin SQL dinámico ni el límite de 2100 parámetros.
+async function listarPorIds(ejecutor, ids) {
+  const resultado = await ejecutor
+    .request()
+    .input('ids', sql.NVarChar(sql.MAX), JSON.stringify(ids))
+    .query(`
+      SELECT ${COLUMNAS}
+      FROM Cancha c
+      JOIN TipoCancha t ON t.Id = c.TipoCanchaId
+      WHERE c.Id IN (SELECT CAST(value AS INT) FROM OPENJSON(@ids))
+      ORDER BY c.Id
+    `);
+  return resultado.recordset.map(mapear);
+}
+
 module.exports = {
   listar,
   obtenerPorId,
@@ -155,4 +170,5 @@ module.exports = {
   activar,
   listarTipos,
   actualizarPrecio,
+  listarPorIds,
 };
