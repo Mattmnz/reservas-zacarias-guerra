@@ -16,4 +16,8 @@ async function cancelar(req, res) {
   res.json({ data: await reservasService.cancelar(req.params.id, req.usuario, req.body) });
 }
 
-module.exports = { crear, confirmar, registrarAsistencia, cancelar };
+async function consultarCancelacion(req, res) {
+  res.json({ data: await reservasService.consultarCancelacion(req.params.id, req.usuario) });
+}
+
+module.exports = { crear, confirmar, registrarAsistencia, cancelar, consultarCancelacion };

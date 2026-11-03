@@ -46,18 +46,9 @@ async function insertarPago(ejecutor, { reservaId, tipo, monto, referencia, crea
     `);
 }
 
-// UPDLOCK: dos cambios de estado simultáneos sobre la misma reserva se serializan.
-async function obtenerParaActualizar(ejecutor, id) {
-  const resultado = await ejecutor
-    .request()
-    .input('id', sql.Int, id)
-    .query(`
-      SELECT Id, ClienteId, CanchaId, Inicio, Monto, Estado, MontoPenalizado
-      FROM Reserva WITH (UPDLOCK)
-      WHERE Id = @id
-    `);
-  const fila = resultado.recordset[0];
-  if (!fila) return null;
+const COLUMNAS_RESERVA = 'Id, ClienteId, CanchaId, Inicio, Monto, Estado, MontoPenalizado';
+
+function mapearReserva(fila) {
   return {
     id: fila.Id,
     clienteId: fila.ClienteId,
@@ -67,6 +58,34 @@ async function obtenerParaActualizar(ejecutor, id) {
     estado: fila.Estado,
     montoPenalizado: fila.MontoPenalizado,
   };
+}
+
+// UPDLOCK: dos cambios de estado simultáneos sobre la misma reserva se serializan.
+async function obtenerParaActualizar(ejecutor, id) {
+  const resultado = await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .query(`
+      SELECT ${COLUMNAS_RESERVA}
+      FROM Reserva WITH (UPDLOCK)
+      WHERE Id = @id
+    `);
+  const fila = resultado.recordset[0];
+  return fila ? mapearReserva(fila) : null;
+}
+
+// Sin bloqueo: para lecturas que no cambian la reserva.
+async function obtenerPorId(ejecutor, id) {
+  const resultado = await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .query(`
+      SELECT ${COLUMNAS_RESERVA}
+      FROM Reserva
+      WHERE Id = @id
+    `);
+  const fila = resultado.recordset[0];
+  return fila ? mapearReserva(fila) : null;
 }
 
 // Solo para estados no cancelados: Activa no cambia, así que CK_Reserva_Activa se mantiene.
@@ -186,6 +205,7 @@ module.exports = {
   insertar,
   insertarPago,
   obtenerParaActualizar,
+  obtenerPorId,
   actualizarEstado,
   listarPagos,
   marcarNoShowVencidas,

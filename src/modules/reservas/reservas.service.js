@@ -265,6 +265,33 @@ function motivoAuditoria(calculo, motivo) {
   return motivo ? `${prefijo} Motivo: ${motivo}` : prefijo;
 }
 
+// Compartida por cancelar y consultarCancelacion, para que los dos den los mismos errores.
+function verificarCancelable(reserva, usuario, ahora) {
+  if (!reserva) throw new AppError(404, 'NO_ENCONTRADO', 'La reserva no existe');
+  // El dueño se verifica antes que el estado: una reserva ajena no revela cómo está.
+  if (usuario.rol !== ROLES.ADMIN && reserva.clienteId !== usuario.id) {
+    throw new AppError(403, 'SIN_PERMISO', 'Solo podés cancelar tus propias reservas');
+  }
+  if (!puedeTransicionar(reserva.estado, ACCIONES.CANCELAR)) {
+    throw transicionInvalida(`No se puede cancelar una reserva ${reserva.estado}`);
+  }
+  if (reserva.inicio <= ahora) throw transicionInvalida('La reserva ya empezó: no se puede cancelar');
+}
+
+// Sin barrido: no escribe, y una reserva ya iniciada da 409 por inicio <= ahora.
+async function consultarCancelacion(idTexto, usuario) {
+  const id = parsearId(idTexto);
+  const reserva = await reservasRepository.obtenerPorId(await db.obtenerPool(), id);
+  const ahora = ahoraNicaragua();
+  verificarCancelable(reserva, usuario, ahora);
+  const calculo = calcularCancelacion(Math.round(reserva.monto * 100), reserva.inicio, ahora);
+  return {
+    porcentajePenalizacion: calculo.porcentajePenalizacion,
+    montoPenalizado: calculo.penalizacionCentavos / 100,
+    reembolso: calculo.reembolsoCentavos / 100,
+  };
+}
+
 async function cancelar(idTexto, usuario, { motivo } = {}) {
   const id = parsearId(idTexto);
   const motivoLimpio = motivoValido(motivo);
@@ -272,17 +299,9 @@ async function cancelar(idTexto, usuario, { motivo } = {}) {
 
   return db.enTransaccion(async (tx) => {
     const reserva = await reservasRepository.obtenerParaActualizar(tx, id);
-    if (!reserva) throw new AppError(404, 'NO_ENCONTRADO', 'La reserva no existe');
-    // El dueño se verifica antes que el estado: una reserva ajena no revela cómo está.
-    if (usuario.rol !== ROLES.ADMIN && reserva.clienteId !== usuario.id) {
-      throw new AppError(403, 'SIN_PERMISO', 'Solo podés cancelar tus propias reservas');
-    }
     // El "ahora" se toma después de obtener el bloqueo, que puede haber esperado a otra transacción.
     const ahora = ahoraNicaragua();
-    if (!puedeTransicionar(reserva.estado, ACCIONES.CANCELAR)) {
-      throw transicionInvalida(`No se puede cancelar una reserva ${reserva.estado}`);
-    }
-    if (reserva.inicio <= ahora) throw transicionInvalida('La reserva ya empezó: no se puede cancelar');
+    verificarCancelable(reserva, usuario, ahora);
 
     const calculo = calcularCancelacion(Math.round(reserva.monto * 100), reserva.inicio, ahora);
     const montoPenalizado = calculo.penalizacionCentavos / 100;
@@ -372,6 +391,7 @@ module.exports = {
   confirmar,
   registrarAsistencia,
   cancelar,
+  consultarCancelacion,
   barrerNoShow,
   ocupadosEnRango,
   contarFuturasActivas,
