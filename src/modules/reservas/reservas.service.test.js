@@ -749,6 +749,88 @@ describe('cancelar', () => {
   });
 });
 
+describe('consultarCancelacion', () => {
+  const CLIENTE = Object.freeze({ id: 5, rol: 'CLIENTE' });
+  const OTRO_CLIENTE = Object.freeze({ id: 6, rol: 'CLIENTE' });
+  const ADMIN = Object.freeze({ id: 1, rol: 'ADMIN' });
+  const inicioEn = (segundos) => new Date(AHORA_NICARAGUA.getTime() + segundos * 1000);
+  const H24 = 24 * 3600;
+
+  // Solo el pool: enTransaccion sigue con el mock que prohíbe conectarse.
+  function preparar(...respuestas) {
+    const pool = crearEjecutorFalso(...respuestas);
+    mock.method(db, 'obtenerPool', async () => pool);
+    return pool;
+  }
+
+  it('id inválido → 400 VALIDACION sin tocar la base', async () => {
+    await assert.rejects(reservasService.consultarCancelacion('abc', CLIENTE), esAppError(400, 'VALIDACION'));
+    assert.equal(db.obtenerPool.mock.callCount(), 0);
+  });
+
+  it('reserva inexistente → 404 NO_ENCONTRADO', async () => {
+    preparar([]);
+    await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(404, 'NO_ENCONTRADO'));
+  });
+
+  it('reserva ajena en estado final → 403 SIN_PERMISO (no 409)', async () => {
+    preparar([filaReserva({ Estado: 'CANCELADA' })]);
+    await assert.rejects(reservasService.consultarCancelacion('12', OTRO_CLIENTE), esAppError(403, 'SIN_PERMISO'));
+  });
+
+  for (const estado of ['CANCELADA', 'COMPLETADA', 'NO_SHOW']) {
+    it(`desde ${estado} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar([filaReserva({ Estado: estado })]);
+      await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+
+  for (const [caso, segundos] of [['que empieza justo ahora', 0], ['ya empezada', -60]]) {
+    it(`reserva ${caso} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar([filaReserva({ Inicio: inicioEn(segundos) })]);
+      await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+
+  it('exactamente 24 h antes → 0 % y reembolso total', async () => {
+    preparar([filaReserva({ Inicio: inicioEn(H24) })]);
+    assert.deepEqual(await reservasService.consultarCancelacion('12', CLIENTE), {
+      porcentajePenalizacion: 0,
+      montoPenalizado: 0,
+      reembolso: 600,
+    });
+  });
+
+  it('menos de 24 h con monto impar → 50 %, el centavo de redondeo va a la penalización', async () => {
+    preparar([filaReserva({ Monto: 600.01, Inicio: inicioEn(H24 - 1) })]);
+    assert.deepEqual(await reservasService.consultarCancelacion('12', CLIENTE), {
+      porcentajePenalizacion: 50,
+      montoPenalizado: 300.01,
+      reembolso: 300,
+    });
+  });
+
+  it('el admin consulta una reserva ajena', async () => {
+    preparar([filaReserva({ Inicio: inicioEn(H24) })]);
+    const costo = await reservasService.consultarCancelacion('12', ADMIN);
+    assert.equal(costo.reembolso, 600);
+  });
+
+  it('lee con el pool sin bloqueo y no escribe nada', async () => {
+    const pool = preparar([filaReserva({ Inicio: inicioEn(H24 - 1) })]);
+    await reservasService.consultarCancelacion('12', CLIENTE);
+
+    assert.equal(pool.llamadas.length, 1);
+    const { texto, inputs } = pool.llamadas[0];
+    assert.match(texto, /SELECT Id, ClienteId, CanchaId, Inicio, Monto, Estado, MontoPenalizado\s+FROM Reserva\s+WHERE Id = @id/);
+    assert.doesNotMatch(texto, /UPDLOCK|UPDATE|INSERT/);
+    assert.equal(inputs.id.valor, 12);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
+});
+
 describe('contarFuturasActivas', () => {
   it('cuenta PAGADA/CONFIRMADA futuras con Activa = 1 literal', async () => {
     const ejecutor = crearEjecutorFalso([{ Cantidad: 4 }]);
