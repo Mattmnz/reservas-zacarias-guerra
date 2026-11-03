@@ -6,6 +6,7 @@ const auditoriaService = require('../auditoria/auditoria.service');
 const notificacionesService = require('../notificaciones/notificaciones.service');
 const canchasService = require('../canchas/canchas.service');
 const horariosService = require('../horarios/horarios.service');
+const usuariosService = require('../usuarios/usuarios.service');
 const reservasRepository = require('./reservas.repository');
 const { ACCIONES, puedeTransicionar, estadoResultante, calcularCancelacion } = require('./reglas');
 
@@ -367,6 +368,126 @@ async function cancelarPorBajaDeCancha(tx, canchaId, adminId) {
   return canceladas.length;
 }
 
+const MS_DIA = 24 * MS_1_HORA;
+const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
+const ESTADOS_VALIDOS = Object.values(ESTADOS);
+
+// Un filtro vacío (?desde=) se toma como ausente: un formulario manda todos sus campos.
+function filtroAusente(valor) {
+  return valor === undefined || valor === '';
+}
+
+// Entrada del query string: llega como texto, o como arreglo si el parámetro se repite.
+function fechaDeFiltro(valor, campo) {
+  if (filtroAusente(valor)) return null;
+  if (typeof valor !== 'string' || !FORMATO_FECHA.test(valor)) {
+    throw validacion(`${campo}: se espera YYYY-MM-DD`);
+  }
+  try {
+    return parsearFechaLocal(`${valor}T00:00:00`, campo);
+  } catch {
+    // Con el formato ya validado, solo falla una fecha que no existe (2026-02-30, mes 13).
+    throw validacion(`${campo}: no es una fecha del calendario`);
+  }
+}
+
+function canchaIdDeFiltro(valor) {
+  if (filtroAusente(valor)) return null;
+  const id = Number(valor);
+  if (typeof valor !== 'string' || !/^\d+$/.test(valor) || id <= 0 || id > INT_MAX) {
+    throw validacion('canchaId: debe ser un entero positivo');
+  }
+  return id;
+}
+
+function estadoDeFiltro(valor) {
+  if (filtroAusente(valor)) return null;
+  if (typeof valor !== 'string' || !ESTADOS_VALIDOS.includes(valor)) {
+    throw validacion(`estado: debe ser ${ESTADOS_VALIDOS.join(', ')}`);
+  }
+  return valor;
+}
+
+// desde y hasta son días completos e inclusivos: hasta se pasa a la base como el día siguiente, exclusivo.
+function filtrosDeListado({ desde, hasta, canchaId, estado } = {}) {
+  const fechaDesde = fechaDeFiltro(desde, 'desde');
+  const fechaHasta = fechaDeFiltro(hasta, 'hasta');
+  if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+    throw validacion('desde: no puede ser posterior a hasta');
+  }
+  return {
+    desde: fechaDesde,
+    hasta: fechaHasta && new Date(fechaHasta.getTime() + MS_DIA),
+    canchaId: canchaIdDeFiltro(canchaId),
+    estado: estadoDeFiltro(estado),
+  };
+}
+
+function idsUnicos(reservas, campo) {
+  return [...new Set(reservas.map((r) => r[campo]))];
+}
+
+// Agrega a cada reserva sus pagos, su cancha y, para el admin, su cliente. Una consulta por fuente,
+// sin importar cuántas reservas haya (sin N+1); son independientes y van en paralelo.
+async function completar(pool, reservas, { conCliente }) {
+  if (reservas.length === 0) return [];
+
+  const [pagos, canchas, clientes] = await Promise.all([
+    reservasRepository.listarPagosDeReservas(pool, reservas.map((r) => r.id)),
+    canchasService.listarPorIds(pool, idsUnicos(reservas, 'canchaId')),
+    conCliente ? usuariosService.listarNombresPorIds(pool, idsUnicos(reservas, 'clienteId')) : [],
+  ]);
+
+  const pagosPorReserva = new Map(reservas.map((r) => [r.id, []]));
+  for (const pago of pagos) pagosPorReserva.get(pago.reservaId).push(pago);
+  const canchaPorId = new Map(canchas.map((c) => [c.id, c]));
+  const nombrePorCliente = new Map(clientes.map((u) => [u.id, u.nombre]));
+
+  return reservas.map((r) => {
+    const cancha = canchaPorId.get(r.canchaId);
+    const respuesta = {
+      ...aRespuesta(r, pagosPorReserva.get(r.id)),
+      canchaNombre: cancha.nombre,
+      tipoCodigo: cancha.tipoCodigo,
+    };
+    if (!conCliente) return respuesta;
+    return { ...respuesta, clienteId: r.clienteId, clienteNombre: nombrePorCliente.get(r.clienteId) };
+  });
+}
+
+async function listarMias(clienteId) {
+  const pool = await db.obtenerPool();
+  // Antes de leer: deja en NO_SHOW lo vencido, para no mostrar como vigente una reserva perdida.
+  await barrerNoShow(pool);
+  const reservas = await reservasRepository.listarDeCliente(pool, clienteId);
+  return completar(pool, reservas, { conCliente: false });
+}
+
+async function obtener(idTexto, usuario) {
+  const id = parsearId(idTexto);
+  const pool = await db.obtenerPool();
+  await barrerNoShow(pool);
+
+  const reserva = await reservasRepository.obtenerPorId(pool, id);
+  if (!reserva) throw new AppError(404, 'NO_ENCONTRADO', 'La reserva no existe');
+  const esAdmin = usuario.rol === ROLES.ADMIN;
+  // Como en cancelar: primero la existencia y después el dueño.
+  if (!esAdmin && reserva.clienteId !== usuario.id) {
+    throw new AppError(403, 'SIN_PERMISO', 'Solo podés ver tus propias reservas');
+  }
+
+  const [respuesta] = await completar(pool, [reserva], { conCliente: esAdmin });
+  return respuesta;
+}
+
+async function listar(consulta) {
+  const filtros = filtrosDeListado(consulta);
+  const pool = await db.obtenerPool();
+  await barrerNoShow(pool);
+  const reservas = await reservasRepository.listar(pool, filtros);
+  return completar(pool, reservas, { conCliente: true });
+}
+
 module.exports = {
   crear,
   confirmar,
@@ -376,4 +497,7 @@ module.exports = {
   ocupadosEnRango,
   contarFuturasActivas,
   cancelarPorBajaDeCancha,
+  listarMias,
+  obtener,
+  listar,
 };

@@ -16,4 +16,16 @@ async function cancelar(req, res) {
   res.json({ data: await reservasService.cancelar(req.params.id, req.usuario, req.body) });
 }
 
-module.exports = { crear, confirmar, registrarAsistencia, cancelar };
+async function listarMias(req, res) {
+  res.json({ data: await reservasService.listarMias(req.usuario.id) });
+}
+
+async function obtener(req, res) {
+  res.json({ data: await reservasService.obtener(req.params.id, req.usuario) });
+}
+
+async function listar(req, res) {
+  res.json({ data: await reservasService.listar(req.query) });
+}
+
+module.exports = { crear, confirmar, registrarAsistencia, cancelar, listarMias, obtener, listar };
