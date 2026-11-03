@@ -307,3 +307,87 @@ Authorization: Bearer {{loginAdmin.response.body.data.token}}
 ### Notificaciones del cliente → incluye las tres cancelaciones con penalización y reembolso
 GET {{base}}/notificaciones
 Authorization: Bearer {{tokenCliente}}
+
+# ─── Consultas (#19) ───────────────────────────────────────────────────────
+# Usan las reservas creadas arriba. Cada consulta barre antes los no-show vencidos.
+# Cada reserva trae canchaNombre, tipoCodigo, montoPenalizado y sus pagos; las
+# respuestas al admin agregan clienteId y clienteNombre.
+
+### Mis reservas (cliente1) → 200, de la más reciente a la más antigua, sin clienteId ni clienteNombre
+GET {{base}}/reservas/mias
+Authorization: Bearer {{tokenCliente}}
+
+### Mis reservas como admin → 403 SIN_PERMISO
+GET {{base}}/reservas/mias
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Mis reservas sin token → 401 NO_AUTENTICADO
+GET {{base}}/reservas/mias
+
+### Detalle propio (cliente1) → 200 CANCELADA, montoPenalizado 0, pagos CARGO y REEMBOLSO, sin datos del cliente
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{tokenCliente}}
+
+### Detalle de una reserva ajena (cliente2) → 403 SIN_PERMISO
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{loginCliente2.response.body.data.token}}
+
+### Detalle como admin → 200 con clienteId y clienteNombre
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Detalle de una reserva inexistente → 404 NO_ENCONTRADO
+GET {{base}}/reservas/999999
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Detalle con id no numérico → 400 VALIDACION
+GET {{base}}/reservas/abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin sin filtros → 200, en orden de agenda (Inicio ascendente), con clienteId y clienteNombre
+GET {{base}}/reservas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin de mañana (desde = hasta, día completo) → 200
+GET {{base}}/reservas?desde={{manana}}&hasta={{manana}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin por cancha y estado → 200, solo las CANCELADA de la cancha 1
+GET {{base}}/reservas?canchaId=1&estado=CANCELADA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin de una cancha inexistente → 200 con lista vacía (es un filtro, no un recurso)
+GET {{base}}/reservas?canchaId=99999
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Filtros vacíos → 200, igual que sin filtros
+GET {{base}}/reservas?desde=&estado=
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde posterior a hasta → 400 VALIDACION
+GET {{base}}/reservas?desde={{$localDatetime "YYYY-MM-DD" 2 d}}&hasta={{manana}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde inexistente en el calendario → 400 VALIDACION
+GET {{base}}/reservas?desde=2026-02-30
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde con otro formato → 400 VALIDACION
+GET {{base}}/reservas?desde=20/10/2026
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Estado desconocido → 400 VALIDACION
+GET {{base}}/reservas?estado=PENDIENTE
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### canchaId no numérico → 400 VALIDACION
+GET {{base}}/reservas?canchaId=abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Parámetro repetido → 400 VALIDACION
+GET {{base}}/reservas?estado=PAGADA&estado=CANCELADA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin como cliente → 403 SIN_PERMISO
+GET {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
