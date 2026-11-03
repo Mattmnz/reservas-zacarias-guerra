@@ -338,3 +338,61 @@ describe('actualizar', () => {
     });
   }
 });
+
+describe('listarNombresPorIds', () => {
+  it('hace una sola consulta con los ids en un único parámetro JSON y devuelve solo id y nombre', async () => {
+    const pool = crearEjecutorFalso([
+      { Id: 3, Nombre: 'Admin' },
+      { Id: 7, Nombre: 'Ana Pérez' },
+    ]);
+
+    const resultado = await usuariosService.listarNombresPorIds(pool, [7, 3]);
+
+    assert.deepEqual(resultado, [
+      { id: 3, nombre: 'Admin' },
+      { id: 7, nombre: 'Ana Pérez' },
+    ]);
+    assert.equal(pool.llamadas.length, 1);
+    const { inputs, texto } = pool.llamadas[0];
+    assert.deepEqual(Object.keys(inputs), ['ids']);
+    assert.equal(inputs.ids.tipo.type, sql.NVarChar);
+    assert.equal(inputs.ids.valor, '[7,3]');
+    assert.match(texto, /WHERE Id IN \(SELECT CAST\(value AS INT\) FROM OPENJSON\(@ids\)\)/);
+    assert.match(texto, /SELECT Id, Nombre FROM Usuario/);
+    // Activos o no: el historial de reservas incluye clientes desactivados.
+    assert.doesNotMatch(texto, /Activo/);
+    assert.doesNotMatch(texto, /PasswordHash|Correo|Telefono/);
+  });
+
+  it('usa el ejecutor recibido, sin pedir el pool ni abrir transacción', async () => {
+    const tx = crearEjecutorFalso([]);
+    await usuariosService.listarNombresPorIds(tx, [7]);
+    assert.equal(tx.llamadas.length, 1);
+    assert.equal(db.obtenerPool.mock.callCount(), 0);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+  });
+
+  it('con un arreglo vacío devuelve [] sin consultar', async () => {
+    const pool = crearEjecutorFalso();
+    assert.deepEqual(await usuariosService.listarNombresPorIds(pool, []), []);
+    assert.equal(pool.llamadas.length, 0);
+  });
+
+  const invalidos = [
+    ['no arreglo', 7],
+    ['ausente', undefined],
+    ['id 0', [0]],
+    ['id negativo', [-1]],
+    ['id decimal', [1.5]],
+    ['id como texto', ['7']],
+    ['id fuera de INT', [2147483648]],
+  ];
+
+  for (const [caso, ids] of invalidos) {
+    it(`rechaza ${caso} con TypeError sin consultar`, async () => {
+      const pool = crearEjecutorFalso();
+      await assert.rejects(usuariosService.listarNombresPorIds(pool, ids), TypeError);
+      assert.equal(pool.llamadas.length, 0);
+    });
+  }
+});

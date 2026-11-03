@@ -102,6 +102,19 @@ async function actualizarActivo(ejecutor, id, activo) {
     .query('UPDATE Usuario SET Activo = @activo WHERE Id = @id');
 }
 
+// Un solo parámetro JSON con los ids: sin SQL dinámico ni el límite de 2100 parámetros.
+async function listarNombresPorIds(ejecutor, ids) {
+  const resultado = await ejecutor
+    .request()
+    .input('ids', sql.NVarChar(sql.MAX), JSON.stringify(ids))
+    .query(`
+      SELECT Id, Nombre FROM Usuario
+      WHERE Id IN (SELECT CAST(value AS INT) FROM OPENJSON(@ids))
+      ORDER BY Id
+    `);
+  return resultado.recordset.map((f) => ({ id: f.Id, nombre: f.Nombre }));
+}
+
 module.exports = {
   obtenerPorId,
   obtenerPorCorreo,
@@ -110,4 +123,5 @@ module.exports = {
   obtenerPorIdParaActualizar,
   actualizarRol,
   actualizarActivo,
+  listarNombresPorIds,
 };
