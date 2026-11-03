@@ -57,3 +57,18 @@ for (const accion of ['confirmar', 'registrarAsistencia']) {
     });
   });
 }
+
+describe('reservas.controller.cancelar', () => {
+  it('pasa el id de la ruta, el usuario del token y el cuerpo, y responde 200 con { data }', async () => {
+    const reserva = { id: 12, estado: 'CANCELADA' };
+    const cancelar = mock.method(reservasService, 'cancelar', async () => reserva);
+    const cuerpo = { motivo: 'Cambio de planes' };
+    const res = crearRes();
+
+    await reservasController.cancelar({ usuario: USUARIO, params: { id: '12' }, body: cuerpo }, res);
+
+    assert.deepEqual(cancelar.mock.calls[0].arguments, ['12', USUARIO, cuerpo]);
+    assert.equal(res.estado, 200);
+    assert.deepEqual(res.cuerpo, { data: reserva });
+  });
+});
