@@ -231,6 +231,7 @@ describe('crear: éxito', () => {
       inicio: '2026-10-21T19:00:00',
       monto: 600,
       estado: 'PAGADA',
+      montoPenalizado: null,
       pagos: [{ tipo: 'CARGO', monto: 600, referencia: 'SIM-C-12', creadoEn: '2026-10-20T13:00:00' }],
     });
   });
@@ -299,6 +300,7 @@ function filaReserva(cambios = {}) {
     Inicio: new Date('2026-10-21T19:00:00Z'),
     Monto: 600,
     Estado: 'PAGADA',
+    MontoPenalizado: null,
     ...cambios,
   };
 }
@@ -470,6 +472,7 @@ describe('confirmar', () => {
         inicio: '2026-10-21T19:00:00',
         monto: 600,
         estado: 'CONFIRMADA',
+        montoPenalizado: null,
         pagos: [{ tipo: 'CARGO', monto: 600, referencia: 'SIM-C-12', creadoEn: '2026-10-19T10:00:00' }],
       });
     });
@@ -546,4 +549,408 @@ describe('registrarAsistencia', () => {
       await assert.rejects(reservasService.registrarAsistencia('12', 1), esAppError(409, 'TRANSICION_INVALIDA'));
     });
   }
+});
+
+describe('cancelar', () => {
+  const CLIENTE = Object.freeze({ id: 5, rol: 'CLIENTE' });
+  const OTRO_CLIENTE = Object.freeze({ id: 6, rol: 'CLIENTE' });
+  const ADMIN = Object.freeze({ id: 1, rol: 'ADMIN' });
+  const inicioEn = (segundos) => new Date(AHORA_NICARAGUA.getTime() + segundos * 1000);
+  const H24 = 24 * 3600;
+
+  // Respuestas en orden: barrido sin filas, lectura, UPDATE, pago de reembolso y pagos.
+  function preparar(fila, pagos = PAGOS) {
+    mock.method(db, 'obtenerPool', async () => ({}));
+    const tx = crearEjecutorFalso([], [fila], [], [], pagos);
+    usarTransaccion(tx);
+    return tx;
+  }
+
+  for (const id of ['abc', '0', '2147483648', undefined]) {
+    it(`id ${id} → 400 VALIDACION sin tocar la base`, async () => {
+      await assert.rejects(reservasService.cancelar(id, CLIENTE), esAppError(400, 'VALIDACION'));
+      assert.equal(db.enTransaccion.mock.callCount(), 0);
+    });
+  }
+
+  for (const [caso, motivo] of [['número', 3], ['en blanco', '   '], ['de 151 caracteres', 'x'.repeat(151)]]) {
+    it(`motivo ${caso} → 400 VALIDACION sin tocar la base`, async () => {
+      await assert.rejects(reservasService.cancelar('12', CLIENTE, { motivo }), esAppError(400, 'VALIDACION'));
+      assert.equal(db.enTransaccion.mock.callCount(), 0);
+    });
+  }
+
+  it('motivo de 150 caracteres se acepta', async () => {
+    preparar(filaReserva({ Inicio: inicioEn(H24) }));
+    const reserva = await reservasService.cancelar('12', CLIENTE, { motivo: 'x'.repeat(150) });
+    assert.equal(reserva.estado, 'CANCELADA');
+  });
+
+  it('sin cuerpo cancela igual y audita solo el prefijo de penalización', async () => {
+    preparar(filaReserva({ Inicio: inicioEn(H24 + 3600) }));
+    const reserva = await reservasService.cancelar('12', CLIENTE, undefined);
+    assert.equal(reserva.estado, 'CANCELADA');
+    assert.equal(
+      auditoriaService.registrar.mock.calls[0].arguments[1].motivo,
+      'Penalización 0 %: C$ 0.00; reembolso: C$ 600.00.',
+    );
+  });
+
+  it('barre los no-show antes de leer la reserva, en otra transacción', async () => {
+    const tx = preparar(filaReserva({ Inicio: inicioEn(H24) }));
+    await reservasService.cancelar('12', CLIENTE);
+    assert.match(tx.llamadas[0].texto, /SET Estado = 'NO_SHOW'/);
+    assert.match(tx.llamadas[1].texto, /WITH \(UPDLOCK\)/);
+    assert.equal(db.enTransaccion.mock.callCount(), 2);
+  });
+
+  it('reserva inexistente → 404 NO_ENCONTRADO', async () => {
+    mock.method(db, 'obtenerPool', async () => ({}));
+    usarTransaccion(crearEjecutorFalso([], []));
+    await assert.rejects(reservasService.cancelar('12', CLIENTE), esAppError(404, 'NO_ENCONTRADO'));
+  });
+
+  it('reserva ajena en estado final → 403 SIN_PERMISO (no 409), sin escribir', async () => {
+    const tx = preparar(filaReserva({ Estado: 'CANCELADA' }));
+    await assert.rejects(reservasService.cancelar('12', OTRO_CLIENTE), esAppError(403, 'SIN_PERMISO'));
+    assert.equal(tx.llamadas.length, 2);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
+
+  it('el admin cancela una reserva ajena: audita con su id y notifica al dueño', async () => {
+    preparar(filaReserva({ Inicio: inicioEn(H24) }));
+    const reserva = await reservasService.cancelar('12', ADMIN);
+    assert.equal(reserva.estado, 'CANCELADA');
+    assert.equal(auditoriaService.registrar.mock.calls[0].arguments[1].usuarioId, 1);
+    assert.equal(notificacionesService.crear.mock.calls[0].arguments[1].usuarioId, 5);
+  });
+
+  for (const estado of ['CANCELADA', 'COMPLETADA', 'NO_SHOW']) {
+    it(`desde ${estado} → 409 TRANSICION_INVALIDA sin UPDATE`, async () => {
+      const tx = preparar(filaReserva({ Estado: estado }));
+      await assert.rejects(reservasService.cancelar('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+      assert.equal(tx.llamadas.length, 2);
+      assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    });
+  }
+
+  for (const [caso, segundos] of [['que empieza justo ahora', 0], ['ya empezada', -60]]) {
+    it(`reserva ${caso} → 409 TRANSICION_INVALIDA sin UPDATE`, async () => {
+      const tx = preparar(filaReserva({ Inicio: inicioEn(segundos) }));
+      await assert.rejects(reservasService.cancelar('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+      assert.equal(tx.llamadas.length, 2);
+    });
+  }
+
+  for (const [caso, segundos] of [['exactamente 24 h antes', H24], ['más de 24 h antes', H24 + 1]]) {
+    it(`${caso} → 0 % de penalización y reembolso total SIM-R-<id>`, async () => {
+      const PAGOS_REEMBOLSO_TOTAL = [
+        ...PAGOS,
+        { Tipo: 'REEMBOLSO', Monto: 600, Referencia: 'SIM-R-12', CreadoEn: AHORA_NICARAGUA },
+      ];
+      const tx = preparar(filaReserva({ Estado: 'CONFIRMADA', Inicio: inicioEn(segundos) }), PAGOS_REEMBOLSO_TOTAL);
+      const reserva = await reservasService.cancelar('12', CLIENTE);
+
+      const { texto, inputs } = tx.llamadas[2];
+      assert.match(texto, /SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = @montoPenalizado, ActualizadaEn = @ahora/);
+      assert.equal(inputs.id.valor, 12);
+      assert.equal(inputs.montoPenalizado.tipo.type, sql.Decimal);
+      assert.equal(inputs.montoPenalizado.valor, 0);
+      assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+      assert.match(tx.llamadas[3].texto, /INSERT INTO Pago/);
+      assert.equal(tx.llamadas[3].inputs.tipo.valor, 'REEMBOLSO');
+      assert.equal(tx.llamadas[3].inputs.monto.valor, 600);
+      assert.equal(tx.llamadas[3].inputs.referencia.valor, 'SIM-R-12');
+      assert.match(tx.llamadas[4].texto, /FROM Pago\s+WHERE ReservaId/);
+
+      assert.equal(reserva.montoPenalizado, 0);
+      assert.deepEqual(reserva.pagos.map((p) => [p.tipo, p.monto]), [['CARGO', 600], ['REEMBOLSO', 600]]);
+      assert.deepEqual(
+        auditoriaService.registrar.mock.calls[0].arguments[1],
+        auditoriaEsperada({
+          accion: 'CANCELAR',
+          estadoAnterior: 'CONFIRMADA',
+          estadoNuevo: 'CANCELADA',
+          usuarioId: 5,
+          motivo: 'Penalización 0 %: C$ 0.00; reembolso: C$ 600.00.',
+        }),
+      );
+    });
+  }
+
+  describe('menos de 24 h antes → 50 %', () => {
+    let tx;
+    let reserva;
+    const PAGOS_CON_REEMBOLSO = [
+      ...PAGOS,
+      { Tipo: 'REEMBOLSO', Monto: 300, Referencia: 'SIM-R-12', CreadoEn: AHORA_NICARAGUA },
+    ];
+
+    beforeEach(async () => {
+      tx = preparar(filaReserva({ Inicio: inicioEn(H24 - 1) }), PAGOS_CON_REEMBOLSO);
+      reserva = await reservasService.cancelar('12', CLIENTE, { motivo: '  Me enfermé  ' });
+    });
+
+    it('guarda la mitad como penalización e inserta el reembolso SIM-R-<id>', () => {
+      assert.equal(tx.llamadas[2].inputs.montoPenalizado.valor, 300);
+      const { texto, inputs } = tx.llamadas[3];
+      assert.match(texto, /INSERT INTO Pago/);
+      assert.equal(inputs.reservaId.valor, 12);
+      assert.equal(inputs.tipo.valor, 'REEMBOLSO');
+      assert.equal(inputs.monto.valor, 300);
+      assert.equal(inputs.referencia.valor, 'SIM-R-12');
+      assert.equal(inputs.creadoEn.valor.getTime(), AHORA_NICARAGUA.getTime());
+    });
+
+    it('audita con el motivo recortado y notifica al cliente en la misma transacción', () => {
+      assert.deepEqual(auditoriaService.registrar.mock.calls[0].arguments, [
+        tx,
+        auditoriaEsperada({
+          accion: 'CANCELAR',
+          estadoAnterior: 'PAGADA',
+          estadoNuevo: 'CANCELADA',
+          usuarioId: 5,
+          motivo: 'Penalización 50 %: C$ 300.00; reembolso: C$ 300.00. Motivo: Me enfermé',
+        }),
+      ]);
+      assert.deepEqual(notificacionesService.crear.mock.calls[0].arguments, [
+        tx,
+        {
+          usuarioId: 5,
+          reservaId: 12,
+          mensaje: 'Reserva #12 cancelada: 21/10/2026 12:59. Penalización 50 %: C$ 300.00; reembolso: C$ 300.00.',
+        },
+      ]);
+    });
+
+    it('responde con montoPenalizado y los dos pagos', () => {
+      assert.deepEqual(reserva, {
+        id: 12,
+        canchaId: 3,
+        inicio: '2026-10-21T12:59:59',
+        monto: 600,
+        estado: 'CANCELADA',
+        montoPenalizado: 300,
+        pagos: [
+          { tipo: 'CARGO', monto: 600, referencia: 'SIM-C-12', creadoEn: '2026-10-19T10:00:00' },
+          { tipo: 'REEMBOLSO', monto: 300, referencia: 'SIM-R-12', creadoEn: '2026-10-20T13:00:00' },
+        ],
+      });
+    });
+  });
+
+  it('con el monto máximo de DECIMAL(10,2) y un motivo de 150 caracteres, el motivo auditado cabe en 250', async () => {
+    preparar(filaReserva({ Monto: 99999999.99, Inicio: inicioEn(3600) }));
+    await reservasService.cancelar('12', CLIENTE, { motivo: 'x'.repeat(150) });
+    const { motivo } = auditoriaService.registrar.mock.calls[0].arguments[1];
+    assert.match(motivo, /^Penalización 50 %: C\$ 50000000\.00; reembolso: C\$ 49999999\.99\. Motivo: x{150}$/);
+    assert.ok(motivo.length <= 250, `motivo de ${motivo.length} caracteres`);
+  });
+});
+
+describe('consultarCancelacion', () => {
+  const CLIENTE = Object.freeze({ id: 5, rol: 'CLIENTE' });
+  const OTRO_CLIENTE = Object.freeze({ id: 6, rol: 'CLIENTE' });
+  const ADMIN = Object.freeze({ id: 1, rol: 'ADMIN' });
+  const inicioEn = (segundos) => new Date(AHORA_NICARAGUA.getTime() + segundos * 1000);
+  const H24 = 24 * 3600;
+
+  // Solo el pool: enTransaccion sigue con el mock que prohíbe conectarse.
+  function preparar(...respuestas) {
+    const pool = crearEjecutorFalso(...respuestas);
+    mock.method(db, 'obtenerPool', async () => pool);
+    return pool;
+  }
+
+  it('id inválido → 400 VALIDACION sin tocar la base', async () => {
+    await assert.rejects(reservasService.consultarCancelacion('abc', CLIENTE), esAppError(400, 'VALIDACION'));
+    assert.equal(db.obtenerPool.mock.callCount(), 0);
+  });
+
+  it('reserva inexistente → 404 NO_ENCONTRADO', async () => {
+    preparar([]);
+    await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(404, 'NO_ENCONTRADO'));
+  });
+
+  it('reserva ajena en estado final → 403 SIN_PERMISO (no 409)', async () => {
+    preparar([filaReserva({ Estado: 'CANCELADA' })]);
+    await assert.rejects(reservasService.consultarCancelacion('12', OTRO_CLIENTE), esAppError(403, 'SIN_PERMISO'));
+  });
+
+  for (const estado of ['CANCELADA', 'COMPLETADA', 'NO_SHOW']) {
+    it(`desde ${estado} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar([filaReserva({ Estado: estado })]);
+      await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+
+  for (const [caso, segundos] of [['que empieza justo ahora', 0], ['ya empezada', -60]]) {
+    it(`reserva ${caso} → 409 TRANSICION_INVALIDA`, async () => {
+      preparar([filaReserva({ Inicio: inicioEn(segundos) })]);
+      await assert.rejects(reservasService.consultarCancelacion('12', CLIENTE), esAppError(409, 'TRANSICION_INVALIDA'));
+    });
+  }
+
+  it('exactamente 24 h antes → 0 % y reembolso total', async () => {
+    preparar([filaReserva({ Inicio: inicioEn(H24) })]);
+    assert.deepEqual(await reservasService.consultarCancelacion('12', CLIENTE), {
+      porcentajePenalizacion: 0,
+      montoPenalizado: 0,
+      reembolso: 600,
+    });
+  });
+
+  it('menos de 24 h con monto impar → 50 %, el centavo de redondeo va a la penalización', async () => {
+    preparar([filaReserva({ Monto: 600.01, Inicio: inicioEn(H24 - 1) })]);
+    assert.deepEqual(await reservasService.consultarCancelacion('12', CLIENTE), {
+      porcentajePenalizacion: 50,
+      montoPenalizado: 300.01,
+      reembolso: 300,
+    });
+  });
+
+  it('el admin consulta una reserva ajena', async () => {
+    preparar([filaReserva({ Inicio: inicioEn(H24) })]);
+    const costo = await reservasService.consultarCancelacion('12', ADMIN);
+    assert.equal(costo.reembolso, 600);
+  });
+
+  it('lee con el pool sin bloqueo y no escribe nada', async () => {
+    const pool = preparar([filaReserva({ Inicio: inicioEn(H24 - 1) })]);
+    await reservasService.consultarCancelacion('12', CLIENTE);
+
+    assert.equal(pool.llamadas.length, 1);
+    const { texto, inputs } = pool.llamadas[0];
+    assert.match(texto, /SELECT Id, ClienteId, CanchaId, Inicio, Monto, Estado, MontoPenalizado\s+FROM Reserva\s+WHERE Id = @id/);
+    assert.doesNotMatch(texto, /UPDLOCK|UPDATE|INSERT/);
+    assert.equal(inputs.id.valor, 12);
+    assert.equal(db.enTransaccion.mock.callCount(), 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
+});
+
+describe('contarFuturasActivas', () => {
+  it('cuenta PAGADA/CONFIRMADA futuras con Activa = 1 literal', async () => {
+    const ejecutor = crearEjecutorFalso([{ Cantidad: 4 }]);
+    assert.equal(await reservasService.contarFuturasActivas(ejecutor, 3), 4);
+    const { texto, inputs } = ejecutor.llamadas[0];
+    assert.match(texto, /WHERE Activa = 1 AND CanchaId = @canchaId/);
+    assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > @ahora/);
+    assert.equal(inputs.canchaId.valor, 3);
+    assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+  });
+
+  for (const canchaId of ['3', 0, 1.5, null]) {
+    it(`canchaId ${canchaId} → TypeError`, async () => {
+      await assert.rejects(reservasService.contarFuturasActivas(crearEjecutorFalso(), canchaId), TypeError);
+    });
+  }
+});
+
+describe('cancelarPorBajaDeCancha', () => {
+  const FUTURAS = [
+    { Id: 20, ClienteId: 5, Inicio: new Date('2026-10-22T08:00:00Z'), Monto: 600, Estado: 'PAGADA' },
+    { Id: 21, ClienteId: 6, Inicio: new Date('2026-10-23T19:00:00Z'), Monto: 1200, Estado: 'CONFIRMADA' },
+  ];
+  const comoTransaccion = (ejecutor) => Object.setPrototypeOf(ejecutor, sql.Transaction.prototype);
+
+  it('con un pool → TypeError', async () => {
+    await assert.rejects(reservasService.cancelarPorBajaDeCancha({}, 3, 1), TypeError);
+  });
+
+  it('con un ejecutor que no es Transaction → TypeError sin escribir', async () => {
+    const ejecutor = crearEjecutorFalso(FUTURAS);
+    await assert.rejects(reservasService.cancelarPorBajaDeCancha(ejecutor, 3, 1), TypeError);
+    assert.equal(ejecutor.llamadas.length, 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+  });
+
+  for (const [caso, canchaId, adminId] of [['canchaId como texto', '3', 1], ['adminId nulo', 3, null]]) {
+    it(`${caso} → TypeError sin escribir`, async () => {
+      const tx = comoTransaccion(crearEjecutorFalso(FUTURAS));
+      await assert.rejects(reservasService.cancelarPorBajaDeCancha(tx, canchaId, adminId), TypeError);
+      assert.equal(tx.llamadas.length, 0);
+    });
+  }
+
+  describe('con dos reservas futuras', () => {
+    let tx;
+    let cantidad;
+
+    beforeEach(async () => {
+      tx = comoTransaccion(crearEjecutorFalso(FUTURAS));
+      cantidad = await reservasService.cancelarPorBajaDeCancha(tx, 3, 1);
+    });
+
+    it('cancela con un solo UPDATE filtrado con Activa = 1 literal y devuelve la cantidad', () => {
+      const { texto, inputs } = tx.llamadas[0];
+      assert.match(texto, /SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = 0, ActualizadaEn = @ahora/);
+      assert.match(texto, /WHERE Activa = 1 AND CanchaId = @canchaId/);
+      assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > @ahora/);
+      assert.equal(inputs.canchaId.valor, 3);
+      assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+      assert.equal(cantidad, 2);
+    });
+
+    it('reembolsa el monto completo de cada una con SIM-R-<id>', () => {
+      const pagos = tx.llamadas
+        .slice(1)
+        .map(({ inputs }) => [inputs.tipo.valor, inputs.monto.valor, inputs.referencia.valor]);
+      assert.deepEqual(pagos, [
+        ['REEMBOLSO', 600, 'SIM-R-20'],
+        ['REEMBOLSO', 1200, 'SIM-R-21'],
+      ]);
+    });
+
+    it('audita con el admin y notifica a cada cliente en la misma transacción', () => {
+      assert.deepEqual(
+        auditoriaService.registrar.mock.calls.map((c) => c.arguments),
+        [
+          [tx, {
+            entidad: 'RESERVA',
+            entidadId: 20,
+            accion: 'CANCELAR',
+            estadoAnterior: 'PAGADA',
+            estadoNuevo: 'CANCELADA',
+            usuarioId: 1,
+            motivo: 'Penalización 0 %: C$ 0.00; reembolso: C$ 600.00. Motivo: baja de la cancha',
+          }],
+          [tx, {
+            entidad: 'RESERVA',
+            entidadId: 21,
+            accion: 'CANCELAR',
+            estadoAnterior: 'CONFIRMADA',
+            estadoNuevo: 'CANCELADA',
+            usuarioId: 1,
+            motivo: 'Penalización 0 %: C$ 0.00; reembolso: C$ 1200.00. Motivo: baja de la cancha',
+          }],
+        ],
+      );
+      assert.deepEqual(
+        notificacionesService.crear.mock.calls.map((c) => c.arguments),
+        [
+          [tx, {
+            usuarioId: 5,
+            reservaId: 20,
+            mensaje: 'Reserva #20 cancelada por baja de la cancha: 22/10/2026 08:00. Reembolso total: C$ 600.00',
+          }],
+          [tx, {
+            usuarioId: 6,
+            reservaId: 21,
+            mensaje: 'Reserva #21 cancelada por baja de la cancha: 23/10/2026 19:00. Reembolso total: C$ 1200.00',
+          }],
+        ],
+      );
+    });
+  });
+
+  it('sin reservas futuras devuelve 0 y no escribe nada más', async () => {
+    const tx = comoTransaccion(crearEjecutorFalso([]));
+    assert.equal(await reservasService.cancelarPorBajaDeCancha(tx, 3, 1), 0);
+    assert.equal(tx.llamadas.length, 1);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    assert.equal(notificacionesService.crear.mock.callCount(), 0);
+  });
 });

@@ -12,4 +12,12 @@ async function registrarAsistencia(req, res) {
   res.json({ data: await reservasService.registrarAsistencia(req.params.id, req.usuario.id) });
 }
 
-module.exports = { crear, confirmar, registrarAsistencia };
+async function cancelar(req, res) {
+  res.json({ data: await reservasService.cancelar(req.params.id, req.usuario, req.body) });
+}
+
+async function consultarCancelacion(req, res) {
+  res.json({ data: await reservasService.consultarCancelacion(req.params.id, req.usuario) });
+}
+
+module.exports = { crear, confirmar, registrarAsistencia, cancelar, consultarCancelacion };
