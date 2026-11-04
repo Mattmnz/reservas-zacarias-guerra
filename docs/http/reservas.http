@@ -212,6 +212,22 @@ Content-Type: application/json
   "inicio": "{{$localDatetime "YYYY-MM-DD" 2 d}}T19:00:00"
 }
 
+### Costo de cancelar una reserva ajena (cliente2) → 403 SIN_PERMISO
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
+Authorization: Bearer {{loginCliente2.response.body.data.token}}
+
+### Costo de cancelar con más de 24 h → 200 { porcentajePenalizacion: 0, montoPenalizado: 0, reembolso: 600 }, sin escribir nada
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar una reserva inexistente → 404 NO_ENCONTRADO
+GET {{base}}/reservas/999999/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar con id no numérico → 400 VALIDACION
+GET {{base}}/reservas/abc/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
 ### Cancelar una reserva ajena (cliente2) → 403 SIN_PERMISO
 POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
 Authorization: Bearer {{loginCliente2.response.body.data.token}}
@@ -240,6 +256,10 @@ Authorization: Bearer {{tokenCliente}}
 
 ### Cancelarla otra vez → 409 TRANSICION_INVALIDA
 POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar una reserva ya cancelada → 409 TRANSICION_INVALIDA
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
 Authorization: Bearer {{tokenCliente}}
 
 ### Cancelar una reserva inexistente → 404 NO_ENCONTRADO
@@ -283,6 +303,10 @@ Content-Type: application/json
 #   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
 #   UPDATE Reserva SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())) + 2, 0)
 #   WHERE Id = @id;
+
+### Costo de la cancelación tardía → 200 { porcentajePenalizacion: 50, montoPenalizado: 300, reembolso: 300 }
+GET {{base}}/reservas/{{crearTardia.response.body.data.id}}/cancelacion
+Authorization: Bearer {{tokenCliente}}
 
 ### Cancelación tardía con motivo → 200 CANCELADA, montoPenalizado 300, REEMBOLSO SIM-R-<id> por 300
 POST {{base}}/reservas/{{crearTardia.response.body.data.id}}/cancelar

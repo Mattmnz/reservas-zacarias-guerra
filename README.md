@@ -84,3 +84,15 @@ curl http://localhost:3000/api/health
 - La API del contenedor y `npm run dev` usan el puerto 3000: no corren a la vez.
 - SSMS se conecta al SQL Server del contenedor en `localhost,14330`, usuario `sa`.
 - `docker compose down` detiene los contenedores y conserva los datos; `docker compose down -v` borra también la base.
+
+## Integración continua
+
+Cada pull request y cada push a `develop` y `main` ejecutan el workflow `.github/workflows/ci.yml` en GitHub Actions. Las reglas de protección de `develop` y `main` exigen que sus tres jobs pasen antes del merge.
+
+| Job | Qué comprueba |
+| --- | --- |
+| Pruebas | `npm ci` y `npm test` con Node 24 y variables de entorno ficticias. Las pruebas no usan base de datos |
+| Imagen Docker | Que `compose.yaml` sea válido y que la imagen se construya |
+| Autoría de commits | Que ningún mensaje de commit declare coautoría o generación automática |
+
+El resultado aparece al pie de cada pull request y en la pestaña *Actions*.
