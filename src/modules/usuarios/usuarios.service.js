@@ -33,6 +33,16 @@ async function obtenerPorId(ejecutor, id) {
   return sinHash(await usuariosRepository.obtenerPorId(ejecutor, id));
 }
 
+// Para otros módulos: solo id y nombre, activos o no (el historial incluye usuarios desactivados).
+async function listarNombresPorIds(ejecutor, ids) {
+  // Invariante interna: quien llama es otro service, no el cliente.
+  if (!Array.isArray(ids) || !ids.every((id) => Number.isInteger(id) && id > 0 && id <= INT_MAX)) {
+    throw new TypeError('ids: se espera un arreglo de enteros positivos');
+  }
+  if (ids.length === 0) return [];
+  return usuariosRepository.listarNombresPorIds(ejecutor, ids);
+}
+
 // Única función que expone el hash: solo la usa el login.
 async function obtenerPorCorreo(ejecutor, correo) {
   return usuariosRepository.obtenerPorCorreo(ejecutor, correo);
@@ -185,4 +195,4 @@ async function actualizar(adminId, idTexto, cuerpo) {
   });
 }
 
-module.exports = { ACCIONES, obtenerPorId, obtenerPorCorreo, crear, listar, actualizar };
+module.exports = { ACCIONES, obtenerPorId, obtenerPorCorreo, crear, listar, actualizar, listarNombresPorIds };

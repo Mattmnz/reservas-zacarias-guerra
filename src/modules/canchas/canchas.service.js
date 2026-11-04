@@ -297,6 +297,17 @@ async function listarActivas(ejecutor, tipoCodigo = null) {
   return canchas.map(aCanchaReducida);
 }
 
+// Para otros módulos: activas o no, porque el historial de reservas incluye canchas dadas de baja.
+async function listarPorIds(ejecutor, ids) {
+  // Invariante interna: quien llama es otro service, no el cliente.
+  if (!Array.isArray(ids) || !ids.every(esIdValido)) {
+    throw new TypeError('ids: se espera un arreglo de enteros positivos');
+  }
+  if (ids.length === 0) return [];
+  const canchas = await canchasRepository.listarPorIds(ejecutor, ids);
+  return canchas.map(aCanchaReducida);
+}
+
 module.exports = {
   ACCIONES,
   listar,
@@ -309,4 +320,5 @@ module.exports = {
   obtenerActiva,
   obtenerParaActualizar,
   listarActivas,
+  listarPorIds,
 };

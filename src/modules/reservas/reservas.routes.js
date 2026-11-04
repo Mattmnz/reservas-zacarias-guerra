@@ -13,4 +13,10 @@ router.patch('/:id/asistencia', autenticar, requerirRol(ROLES.ADMIN), reservasCo
 router.post('/:id/cancelar', autenticar, reservasController.cancelar);
 router.get('/:id/cancelacion', autenticar, reservasController.consultarCancelacion);
 
+// /mias antes de /:id: si no, "mias" se tomaría como id y daría 400.
+router.get('/mias', autenticar, requerirRol(ROLES.CLIENTE), reservasController.listarMias);
+router.get('/', autenticar, requerirRol(ROLES.ADMIN), reservasController.listar);
+// Cualquier rol: el service limita al cliente a sus propias reservas.
+router.get('/:id', autenticar, reservasController.obtener);
+
 module.exports = router;

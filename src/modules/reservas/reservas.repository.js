@@ -200,6 +200,65 @@ async function cancelarFuturasDeCancha(ejecutor, canchaId, ahora) {
   }));
 }
 
+// Consultas de lectura (#19): solo Reserva y Pago; canchas y usuarios se piden a sus services.
+
+
+
+// IX_Reserva_Cliente (ClienteId, Inicio) lleva Id en la clave: se recorre hacia atrás sin ordenar aparte.
+async function listarDeCliente(ejecutor, clienteId) {
+  const resultado = await ejecutor
+    .request()
+    .input('clienteId', sql.Int, clienteId)
+    .query(`
+      SELECT ${COLUMNAS_RESERVA} FROM Reserva
+      WHERE ClienteId = @clienteId
+      ORDER BY Inicio DESC, Id DESC
+    `);
+  return resultado.recordset.map(mapearReserva);
+}
+
+
+// Un null desactiva cada filtro. RECOMPILE: con filtros opcionales, un plan en caché no usaría
+// IX_Reserva_Estado_Inicio cuando sí viene el estado.
+async function listar(ejecutor, { desde, hasta, canchaId, estado }) {
+  const resultado = await ejecutor
+    .request()
+    .input('desde', sql.DateTime2(0), desde)
+    .input('hasta', sql.DateTime2(0), hasta)
+    .input('canchaId', sql.Int, canchaId)
+    .input('estado', sql.VarChar(12), estado)
+    .query(`
+      SELECT ${COLUMNAS_RESERVA} FROM Reserva
+      WHERE (@desde IS NULL OR Inicio >= @desde)
+        AND (@hasta IS NULL OR Inicio < @hasta)
+        AND (@canchaId IS NULL OR CanchaId = @canchaId)
+        AND (@estado IS NULL OR Estado = @estado)
+      ORDER BY Inicio, Id
+      OPTION (RECOMPILE)
+    `);
+  return resultado.recordset.map(mapearReserva);
+}
+
+// Una sola consulta para todo el listado. Un solo parámetro JSON con los ids:
+// sin SQL dinámico ni el límite de 2100 parámetros.
+async function listarPagosDeReservas(ejecutor, reservaIds) {
+  const resultado = await ejecutor
+    .request()
+    .input('ids', sql.NVarChar(sql.MAX), JSON.stringify(reservaIds))
+    .query(`
+      SELECT ReservaId, Tipo, Monto, Referencia, CreadoEn FROM Pago
+      WHERE ReservaId IN (SELECT CAST(value AS INT) FROM OPENJSON(@ids))
+      ORDER BY Id
+    `);
+  return resultado.recordset.map((p) => ({
+    reservaId: p.ReservaId,
+    tipo: p.Tipo,
+    monto: p.Monto,
+    referencia: p.Referencia,
+    creadoEn: p.CreadoEn,
+  }));
+}
+
 module.exports = {
   bloquearSlot,
   insertar,
@@ -213,4 +272,7 @@ module.exports = {
   cancelar,
   contarFuturasActivas,
   cancelarFuturasDeCancha,
+  listarDeCliente,
+  listar,
+  listarPagosDeReservas,
 };
