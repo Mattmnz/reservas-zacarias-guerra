@@ -52,6 +52,7 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Cada pantalla:** muestra los estados de carga, vacío y error. Las acciones con efecto piden confirmación, y los montos penalizados y reembolsados se ven explícitos.
 - **Fechas y montos:** con `js/formato.js`. Las fechas de la API son hora de Nicaragua sin zona: no las formatees con métodos locales de `Date`.
 - **Parámetros de la URL:** se validan con `js/parametros.js` antes de llamar a la API.
+- **Usuarios:** los nombres de los roles, la query de los filtros y los textos de cada acción salen de `js/usuarios.js`.
 
 ## Componentes CSS
 
@@ -69,6 +70,8 @@ Todos están en `css/estilos.css`. Los colores y medidas son variables de `:root
 | `.aviso`, `--info`, `--error`, `--exito` | Mensajes; con `role="alert"` si es un error |
 | `.estado-carga`, `.vacio` | Estados de carga y de lista vacía |
 | `.etiqueta`, `--pagada`, `--confirmada`, `--completada`, `--cancelada`, `--no-show` | Estado de una reserva |
+| `.etiqueta--activo`, `--inactivo` | Estado de un usuario |
+| `.tarjeta--usuario` | Tarjeta que corta un correo largo en el celular |
 | `.tabla-envoltorio`, `.tabla` | Tabla con scroll propio en el celular |
 | `.dialogo`, `.dialogo__acciones` | Confirmación con `<dialog>` y `showModal()` |
 
