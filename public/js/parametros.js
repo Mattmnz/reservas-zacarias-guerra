@@ -9,6 +9,10 @@ export function leerIdPositivo(texto) {
   return id > 0 && id <= INT_MAX ? id : null;
 }
 
+export function leerOpcion(texto, opciones) {
+  return opciones.includes(texto) ? texto : null;
+}
+
 export function leerInicio(texto) {
   if (typeof texto !== 'string' || !FORMATO_INICIO.test(texto)) return null;
   const fecha = new Date(`${texto}Z`);
