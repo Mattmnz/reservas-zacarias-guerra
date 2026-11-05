@@ -1,5 +1,6 @@
 # Integración continua: corre en cada pull request y en cada push a develop y main.
 # Las reglas de protección de develop y main exigen que los tres jobs pasen antes del merge.
+# Despliegue continuo: al integrar en main, y solo con los tres jobs en verde, despliega en Render.
 name: CI
 
 on:
@@ -90,3 +91,23 @@ jobs:
             echo "Revisados $(git rev-list --count $rango) commits: todos con un solo autor."
           fi
           exit "$encontrados"
+
+  despliegue:
+    name: Despliegue
+    # Solo un push a main (el merge de un PR); en PRs y en develop el job queda omitido.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [pruebas, imagen, autoria]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Disparar el despliegue en Render
+        env:
+          # Con esta URL cualquiera puede desplegar: va como secreto y nunca se imprime.
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "::error::Falta el secreto RENDER_DEPLOY_HOOK (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 30 -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          echo "Render recibió el pedido de despliegue de $GITHUB_SHA."
