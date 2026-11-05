@@ -44,7 +44,7 @@ Inserta cada fila solo si su clave natural no existe, así que puede ejecutarse 
 | `TipoCancha` | `SALA` C$ 600/h, `CAMPO` C$ 1,200/h | `Codigo` |
 | `Cancha` | Sala 1 a Sala 5, Campo 1 y Campo 2 | `Nombre` |
 | `Horario` | 07:00 a 22:00, los 7 días, en las 7 canchas (49 filas) | `(CanchaId, DiaSemana)` |
-| `Usuario` | Administrador (de `SEED_ADMIN_*`) y dos clientes de prueba | `Correo` |
+| `Usuario` | Administrador (de `SEED_ADMIN_*`) y, con `SEED_CLIENTES_PRUEBA=true`, dos clientes de prueba | `Correo` |
 
 ### Usuarios de prueba
 
@@ -54,7 +54,15 @@ Inserta cada fila solo si su clave natural no existe, así que puede ejecutarse 
 | `cliente1@prueba.local` | `Cliente123!` | CLIENTE |
 | `cliente2@prueba.local` | `Cliente123!` | CLIENTE |
 
-Son credenciales de desarrollo: el sistema es simulado y no deben reutilizarse en ningún otro lugar.
+Son credenciales de desarrollo: el sistema es simulado y no deben reutilizarse en ningún otro lugar. Por eso la base de producción se siembra con `SEED_CLIENTES_PRUEBA=false`.
+
+## Producción (Azure SQL)
+
+En este orden, desde una máquina con acceso al servidor de Azure:
+
+1. `npm run db:migrar` y `npm run db:seed` conectados como el administrador del servidor, con `DB_CONFIAR_CERTIFICADO=false` y `SEED_CLIENTES_PRUEBA=false`.
+2. `produccion/usuario-app.sql` en SSMS, conectado a la base como el administrador: crea el usuario de la aplicación con permisos solo de lectura y escritura de filas.
+3. La aplicación desplegada se conecta con ese usuario, nunca con el administrador.
 
 ## Reiniciar la base en local
 

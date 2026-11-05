@@ -20,7 +20,7 @@ Backend del sistema web de reservas de canchas del Complejo Deportivo Zacarías 
    npm install
    ```
 
-2. Copiar `.env.example` a `.env` y completar los valores (`DB_PASSWORD`, `JWT_SECRETO` y, para el seed, `SEED_ADMIN_CORREO` y `SEED_ADMIN_PASSWORD`). Si falta una variable obligatoria, el servidor no arranca y dice cuál falta.
+2. Copiar `.env.example` a `.env` y completar los valores (`DB_PASSWORD`, `JWT_SECRETO` y, para el seed, `SEED_ADMIN_CORREO`, `SEED_ADMIN_PASSWORD` y `SEED_CLIENTES_PRUEBA`, que va en `true` en local). Si falta una variable obligatoria, el servidor no arranca y dice cuál falta.
 
 3. Crear las tablas y cargar los datos iniciales:
 
