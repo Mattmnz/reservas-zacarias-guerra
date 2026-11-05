@@ -11,6 +11,7 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY scripts ./scripts
 COPY db ./db
+COPY public ./public
 
 # La imagen oficial trae el usuario node: el proceso no corre como root.
 USER node
