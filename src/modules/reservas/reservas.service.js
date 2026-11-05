@@ -344,12 +344,14 @@ function exigirId(valor, campo) {
   }
 }
 
+// El nombre se mantiene porque es parte del contrato, pero desde #20 cuenta también las reservas en curso
+// (empezaron hace menos de 1 h): la baja de cancha es la única forma de cancelar una reserva ya empezada.
 async function contarFuturasActivas(ejecutor, canchaId) {
   exigirId(canchaId, 'canchaId');
   return reservasRepository.contarFuturasActivas(ejecutor, canchaId, ahoraNicaragua());
 }
 
-// Baja de cancha (#20): reembolso del 100 % de las reservas futuras, dentro de la transacción de la baja.
+// Baja de cancha (#20): reembolso del 100 % de las reservas futuras o en curso, dentro de la transacción de la baja.
 async function cancelarPorBajaDeCancha(tx, canchaId, adminId) {
   if (!(tx instanceof db.sql.Transaction)) {
     throw new TypeError('tx: se espera la transacción de la baja de cancha');

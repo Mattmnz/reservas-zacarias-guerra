@@ -11,5 +11,6 @@ router.get('/:id', autenticar, canchasController.obtener);
 router.post('/', autenticar, requerirRol(ROLES.ADMIN), canchasController.crear);
 router.put('/:id', autenticar, requerirRol(ROLES.ADMIN), canchasController.editar);
 router.patch('/:id/alta', autenticar, requerirRol(ROLES.ADMIN), canchasController.darDeAlta);
+router.patch('/:id/baja', autenticar, requerirRol(ROLES.ADMIN), canchasController.darDeBaja);
 
 module.exports = router;
