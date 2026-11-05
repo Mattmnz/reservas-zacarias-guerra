@@ -14,8 +14,9 @@
       <p class="aviso aviso--exito" data-registrado role="status" hidden>
         Cuenta creada. Ya puede iniciar sesión.
       </p>
+      <noscript><p class="aviso aviso--error">Se necesita JavaScript para iniciar sesión.</p></noscript>
       <p class="aviso aviso--error" data-error role="alert" hidden></p>
-      <form class="tarjeta" data-formulario>
+      <form class="tarjeta" method="post" data-formulario>
         <label class="campo">
           <span class="campo__etiqueta">Correo</span>
           <input type="email" name="correo" autocomplete="email" required>
@@ -24,7 +25,8 @@
           <span class="campo__etiqueta">Contraseña</span>
           <input type="password" name="password" autocomplete="current-password" required>
         </label>
-        <button class="boton boton--bloque" type="submit">Iniciar sesión</button>
+        <p class="aviso aviso--info" data-preparando>Preparando el formulario… Si el botón no se habilita, recargá la página.</p>
+        <button class="boton boton--bloque" type="submit" disabled>Iniciar sesión</button>
       </form>
       <p>¿No tiene cuenta? <a href="/registro.html">Registrarse</a></p>
     </main>

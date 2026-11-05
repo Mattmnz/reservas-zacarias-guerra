@@ -10,8 +10,9 @@
   <body>
     <main class="contenedor contenedor--angosto">
       <h1>Crear cuenta</h1>
+      <noscript><p class="aviso aviso--error">Se necesita JavaScript para registrarse.</p></noscript>
       <p class="aviso aviso--error" data-error role="alert" hidden></p>
-      <form class="tarjeta" data-formulario>
+      <form class="tarjeta" method="post" data-formulario>
         <label class="campo">
           <span class="campo__etiqueta">Nombre</span>
           <input type="text" name="nombre" autocomplete="name" maxlength="100" required>
@@ -29,7 +30,8 @@
           <span class="campo__etiqueta">Teléfono (opcional)</span>
           <input type="tel" name="telefono" autocomplete="tel" maxlength="20">
         </label>
-        <button class="boton boton--bloque" type="submit">Crear cuenta</button>
+        <p class="aviso aviso--info" data-preparando>Preparando el formulario… Si el botón no se habilita, recargá la página.</p>
+        <button class="boton boton--bloque" type="submit" disabled>Crear cuenta</button>
       </form>
       <p>¿Ya tiene cuenta? <a href="/login.html">Iniciar sesión</a></p>
     </main>
