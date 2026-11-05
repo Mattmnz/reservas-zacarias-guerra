@@ -69,7 +69,12 @@ function textosDe(nodo) {
 describe('sesion', () => {
   beforeEach(() => {
     simularGlobal('sessionStorage', crearAlmacen());
-    simularGlobal('location', { pathname: '/admin/panel.html', search: '', replace: mock.fn() });
+    simularGlobal('location', {
+      origin: 'http://localhost:3000',
+      pathname: '/admin/panel.html',
+      search: '',
+      replace: mock.fn(),
+    });
     simularGlobal('addEventListener', mock.fn());
     simularDocumento();
   });
@@ -96,7 +101,33 @@ describe('sesion', () => {
   it('consumirRetorno devuelve el dato una sola vez', () => {
     sessionStorage.setItem('zg.retorno', '/cliente/historial.html');
 
-    assert.equal(consumirRetorno(), '/cliente/historial.html');
+    assert.equal(consumirRetorno(), 'http://localhost:3000/cliente/historial.html');
+    assert.equal(consumirRetorno(), null);
+  });
+
+  it('consumirRetorno descarta un retorno que sale del sitio', () => {
+    // Express sirve el catálogo en esta ruta, y el navegador la guarda tal cual en location.pathname.
+    sessionStorage.setItem('zg.retorno', '//evil.example/x%2F..%2F..%2Fcliente/catalogo.html');
+
+    assert.equal(consumirRetorno(), null);
+    assert.equal(sessionStorage.getItem('zg.retorno'), null);
+  });
+
+  it('consumirRetorno conserva la query del retorno', () => {
+    sessionStorage.setItem('zg.retorno', '/cliente/reserva.html?cancha=3');
+
+    assert.equal(consumirRetorno(), 'http://localhost:3000/cliente/reserva.html?cancha=3');
+  });
+
+  it('consumirRetorno sigue en el sitio con una ruta /.//host', () => {
+    sessionStorage.setItem('zg.retorno', '/.//evil.example');
+
+    assert.equal(new URL(consumirRetorno(), location.origin).origin, 'http://localhost:3000');
+  });
+
+  it('consumirRetorno descarta un retorno que no es una URL válida', () => {
+    sessionStorage.setItem('zg.retorno', '//');
+
     assert.equal(consumirRetorno(), null);
   });
 

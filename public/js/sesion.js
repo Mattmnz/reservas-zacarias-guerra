@@ -49,7 +49,7 @@ export function guardarSesion(token, usuario) {
   guardarUsuario(usuario);
 }
 
-// El retorno sale de location y no de la URL del login: no permite una redirección abierta.
+// El retorno sale de location y se valida en consumirRetorno, que solo acepta el mismo origen.
 export function expirarSesion() {
   sessionStorage.removeItem(CLAVE_TOKEN);
   sessionStorage.removeItem(CLAVE_USUARIO);
@@ -57,10 +57,18 @@ export function expirarSesion() {
   location.replace(RUTA_LOGIN);
 }
 
+// Solo vuelve a este origen: una ruta "//host/..." es relativa al protocolo y saldría del sitio.
+// Devuelve href y no el pathname: con "/.//host" el pathname queda "//host" y también saldría.
 export function consumirRetorno() {
   const retorno = sessionStorage.getItem(CLAVE_RETORNO);
   sessionStorage.removeItem(CLAVE_RETORNO);
-  return retorno;
+  if (!retorno) return null;
+  try {
+    const destino = new URL(retorno, location.origin);
+    return destino.origin === location.origin ? destino.href : null;
+  } catch {
+    return null;
+  }
 }
 
 export function cerrarSesion() {
