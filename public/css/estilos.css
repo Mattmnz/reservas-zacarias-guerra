@@ -355,6 +355,23 @@ a.tarjeta:hover {
   color: var(--alerta-texto);
 }
 
+/* Estado de un usuario */
+
+.etiqueta--activo {
+  background: var(--exito-fondo);
+  color: var(--exito-texto);
+}
+
+.etiqueta--inactivo {
+  background: var(--neutro-fondo);
+  color: var(--neutro-texto);
+}
+
+/* Sin esto, un correo largo no se corta y desborda la página en el celular */
+.tarjeta--usuario {
+  overflow-wrap: anywhere;
+}
+
 /* Tablas: el scroll queda en el envoltorio para que la página no se desborde en el celular */
 
 .tabla-envoltorio {

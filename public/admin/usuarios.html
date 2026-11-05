@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestionar usuarios · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/usuarios.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1 tabindex="-1" data-titulo>Gestionar usuarios</h1>
+      <p class="aviso aviso--exito" data-resultado role="status" hidden></p>
+      <form class="tarjeta" method="get">
+        <div class="rejilla">
+          <label class="campo">
+            <span class="campo__etiqueta">Rol</span>
+            <select name="rol">
+              <option value="">Todos</option>
+              <option value="CLIENTE">Cliente</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Estado</span>
+            <select name="activo">
+              <option value="">Todos</option>
+              <option value="true">Activos</option>
+              <option value="false">Inactivos</option>
+            </select>
+          </label>
+        </div>
+        <button class="boton boton--bloque" type="submit">Filtrar</button>
+      </form>
+      <p class="estado-carga" data-cargando role="status">Consultando los usuarios…</p>
+      <p class="vacio" data-vacio hidden>No hay usuarios con esos filtros.</p>
+      <div class="rejilla" data-usuarios></div>
+
+      <dialog class="dialogo" data-dialogo aria-labelledby="dialogo-titulo">
+        <form method="dialog">
+          <h2 id="dialogo-titulo" data-dialogo-titulo></h2>
+          <p data-dialogo-detalle></p>
+          <p data-dialogo-consecuencia></p>
+          <label class="campo">
+            <span class="campo__etiqueta">Motivo (opcional)</span>
+            <textarea name="motivo" maxlength="250" rows="2" data-dialogo-motivo></textarea>
+          </label>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton" value="confirmar" data-dialogo-confirmar></button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
