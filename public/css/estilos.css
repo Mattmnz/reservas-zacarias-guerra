@@ -367,8 +367,9 @@ a.tarjeta:hover {
   color: var(--neutro-texto);
 }
 
-/* Sin esto, un correo largo no se corta y desborda la página en el celular */
-.tarjeta--usuario {
+/* Sin esto, un correo o un motivo largo no se corta y desborda la página en el celular */
+.tarjeta--usuario,
+.tarjeta--auditoria {
   overflow-wrap: anywhere;
 }
 
