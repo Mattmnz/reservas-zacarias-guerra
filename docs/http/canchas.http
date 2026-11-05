@@ -392,6 +392,48 @@ Content-Type: application/json
 
 {}
 
+# ─── Baja con una reserva en curso ──────────────────────────────────────────
+# Una reserva que empezó hace menos de 1 h sigue activa (RF08): la baja la cuenta
+# y, con confirmar, la cancela con reembolso del 100 %.
+
+### Reserva de cliente1 en Prueba 1, mañana a las 21:00 → 201 PAGADA
+# @name reservaEnCurso
+POST {{base}}/reservas
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{prueba1}},
+  "inicio": "{{manana}}T21:00:00"
+}
+
+# En SSMS, solo en tu base local, movela a la hora en punto actual (queda en curso):
+#
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva
+#                      WHERE CanchaId = (SELECT Id FROM Cancha WHERE Nombre = N'Prueba 1'));
+#   UPDATE Reserva SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())), 0)
+#   WHERE Id = @id;
+
+### Baja sin confirmar → 409 CANCHA_CON_RESERVAS ("La cancha tiene 1 reserva activa...")
+PATCH {{base}}/canchas/{{prueba1}}/baja
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{}
+
+### Baja con confirmar → 200 (reservasCanceladas: 1)
+PATCH {{base}}/canchas/{{prueba1}}/baja
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "confirmar": true
+}
+
+### Reserva en curso → 200 CANCELADA, montoPenalizado 0, REEMBOLSO SIM-R-<id> por el total
+GET {{base}}/reservas/{{reservaEnCurso.response.body.data.id}}
+Authorization: Bearer {{loginCliente.response.body.data.token}}
+
 # ---------------------------------------------------------------------------
 # Limpieza al terminar, en SSMS, en este orden (cada tabla depende de la anterior):
 #
