@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Detalle y reserva · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/reserva.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor contenedor--angosto aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor contenedor--angosto" data-contenido hidden>
+      <h1>Detalle y reserva</h1>
+      <p class="estado-carga" data-cargando role="status">Consultando el horario…</p>
+
+      <section class="tarjeta" data-detalle hidden>
+        <h2 data-cancha></h2>
+        <p data-tipo></p>
+        <p data-fecha></p>
+        <p>Hora de inicio: <strong data-hora></strong> (1 hora)</p>
+        <p>Total: <strong data-monto></strong></p>
+        <p class="campo__ayuda">El pago es simulado: se registra al reservar y no se cobra dinero real.</p>
+        <button class="boton boton--bloque" type="button" data-reservar>Reservar</button>
+      </section>
+
+      <section data-alternativas hidden>
+        <p class="aviso aviso--info" role="status">Ese horario ya no está disponible.</p>
+        <h2 data-alternativas-titulo></h2>
+        <div data-alternativas-lista></div>
+        <p class="vacio" data-alternativas-vacio hidden>No quedan horarios libres en esta cancha ese día.</p>
+      </section>
+
+      <p class="titulo-seccion"><a href="/cliente/catalogo.html" data-volver>Volver al catálogo</a></p>
+
+      <dialog class="dialogo" data-dialogo aria-labelledby="dialogo-titulo">
+        <form method="dialog">
+          <h2 id="dialogo-titulo">Confirmar la reserva</h2>
+          <p data-dialogo-detalle></p>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="cancelar">Volver</button>
+            <button class="boton" value="confirmar">Pagar y reservar</button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
