@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirmación de reserva · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/confirmacion.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor contenedor--angosto aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor contenedor--angosto" data-contenido hidden>
+      <h1>Confirmación de reserva</h1>
+      <p class="estado-carga" data-cargando role="status">Cargando la reserva…</p>
+
+      <div data-detalle hidden>
+        <p class="aviso aviso--exito" data-exito role="status" hidden>Su reserva quedó registrada y pagada.</p>
+        <section class="tarjeta">
+          <h2 data-cancha></h2>
+          <p data-tipo></p>
+          <p data-fecha></p>
+          <p>Hora de inicio: <strong data-hora></strong> (1 hora)</p>
+          <p>Total: <strong data-monto></strong></p>
+          <p>Estado: <span class="etiqueta" data-estado></span></p>
+        </section>
+        <h2 class="titulo-seccion">Pago simulado</h2>
+        <div class="tabla-envoltorio">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th scope="col">Tipo</th>
+                <th scope="col">Monto</th>
+                <th scope="col">Referencia</th>
+              </tr>
+            </thead>
+            <tbody data-pagos></tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="bloques titulo-seccion">
+        <a class="boton" href="/cliente/historial.html">Ver historial</a>
+        <a class="boton boton--secundario" href="/cliente/catalogo.html">Volver al catálogo</a>
+      </p>
+    </main>
+  </body>
+</html>
