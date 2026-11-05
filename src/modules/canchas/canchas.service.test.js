@@ -6,6 +6,7 @@ const { sql } = db;
 const AppError = require('../../shared/AppError');
 const auditoriaService = require('../auditoria/auditoria.service');
 const canchasService = require('./canchas.service');
+const reservasService = require('../reservas/reservas.service');
 
 const AHORA_UTC = Date.UTC(2026, 9, 20, 19, 0, 0);
 const AHORA_NICARAGUA = new Date('2026-10-20T13:00:00Z');
@@ -517,6 +518,131 @@ describe('darDeAlta', () => {
   for (const [caso, id, body, mensaje] of invalidos) {
     it(`rechaza ${caso} con 400 VALIDACION sin abrir transacción`, async () => {
       await assert.rejects(canchasService.darDeAlta(3, id, body), esValidacion(mensaje));
+      assert.equal(db.enTransaccion.mock.callCount(), 0);
+    });
+  }
+});
+
+describe('darDeBaja', () => {
+  const FILA_INACTIVA = Object.freeze({ ...FILA_SALA, Activa: false });
+  const CANCHA_INACTIVA = Object.freeze({ ...CANCHA_SALA, activa: false });
+  let llamadasAlContar;
+
+  // contar y cancelar son de reservas (C): se simulan y se anota en qué momento se cuenta.
+  function simularReservas(tx, { activas = 0, canceladas = activas } = {}) {
+    mock.method(reservasService, 'contarFuturasActivas', async () => {
+      llamadasAlContar = tx.llamadas.length;
+      return activas;
+    });
+    mock.method(reservasService, 'cancelarPorBajaDeCancha', async () => canceladas);
+  }
+
+  function prepararBaja(opciones, respuestas = [[{ Activa: true }], [FILA_INACTIVA]]) {
+    const tx = crearEjecutorFalso(...respuestas);
+    usarTransaccion(tx);
+    simularReservas(tx, opciones);
+    return tx;
+  }
+
+  it('sin reservas: desactiva primero, cuenta con la transacción y audita BAJA', async () => {
+    const tx = prepararBaja();
+
+    const cancha = await canchasService.darDeBaja(3, '1', { motivo: '  Mantenimiento  ' });
+
+    assert.deepEqual(cancha, { ...CANCHA_INACTIVA, reservasCanceladas: 0 });
+    assert.match(tx.llamadas[0].texto, /UPDATE Cancha SET Activa = 0 OUTPUT DELETED\.Activa WHERE Id = @id/);
+    assert.equal(tx.llamadas[0].inputs.id.valor, 1);
+    assert.equal(llamadasAlContar, 1, 'el conteo va después del UPDATE');
+    assert.deepEqual(reservasService.contarFuturasActivas.mock.calls[0].arguments, [tx, 1]);
+    assert.equal(reservasService.cancelarPorBajaDeCancha.mock.callCount(), 0);
+    const [ejecutor, datos] = auditoriaService.registrar.mock.calls[0].arguments;
+    assert.equal(ejecutor, tx);
+    assert.deepEqual(datos, {
+      entidad: 'CANCHA',
+      entidadId: 1,
+      accion: 'BAJA',
+      estadoAnterior: 'ACTIVA',
+      estadoNuevo: 'INACTIVA',
+      usuarioId: 3,
+      motivo: 'Reservas canceladas: 0. Motivo: Mantenimiento',
+    });
+  });
+
+  it('sin body: confirmar false y la auditoría lleva solo la cifra', async () => {
+    prepararBaja();
+    await canchasService.darDeBaja(3, '1', undefined);
+    assert.equal(auditoriaService.registrar.mock.calls[0].arguments[1].motivo, 'Reservas canceladas: 0.');
+  });
+
+  for (const [caso, body] of [['sin confirmar', {}], ['con confirmar: false', { confirmar: false }]]) {
+    it(`con reservas y ${caso} → 409 CANCHA_CON_RESERVAS con la cantidad, sin cancelar ni auditar`, async () => {
+      const tx = prepararBaja({ activas: 2 });
+
+      await assert.rejects(
+        canchasService.darDeBaja(3, '1', body),
+        esAppError(409, 'CANCHA_CON_RESERVAS', /2 reservas activas.*confirmar: true/),
+      );
+      assert.equal(tx.llamadas.length, 1, 'solo el UPDATE, que el rollback deshace');
+      assert.equal(reservasService.cancelarPorBajaDeCancha.mock.callCount(), 0);
+      assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+    });
+  }
+
+  it('el mensaje usa singular con una sola reserva', async () => {
+    prepararBaja({ activas: 1 });
+    await assert.rejects(
+      canchasService.darDeBaja(3, '1', {}),
+      esAppError(409, 'CANCHA_CON_RESERVAS', /tiene 1 reserva activa\./),
+    );
+  });
+
+  it('con confirmar: true cancela con la transacción y audita la cifra que devuelve cancelar', async () => {
+    // Cuenta 3 pero cancela 2: una salió del filtro entre las dos llamadas (cada una toma su "ahora").
+    const tx = prepararBaja({ activas: 3, canceladas: 2 });
+
+    const cancha = await canchasService.darDeBaja(3, '1', { confirmar: true });
+
+    assert.deepEqual(reservasService.cancelarPorBajaDeCancha.mock.calls[0].arguments, [tx, 1, 3]);
+    assert.equal(auditoriaService.registrar.mock.calls[0].arguments[1].motivo, 'Reservas canceladas: 2.');
+    assert.equal(cancha.reservasCanceladas, 2);
+    assert.equal(cancha.activa, false);
+  });
+
+  it('motivo de 200 caracteres con la cifra máxima entra en los 250 de la auditoría', async () => {
+    prepararBaja({ activas: 1, canceladas: 2147483647 });
+
+    await canchasService.darDeBaja(3, '1', { confirmar: true, motivo: 'm'.repeat(200) });
+
+    assert.ok(auditoriaService.registrar.mock.calls[0].arguments[1].motivo.length <= 250);
+  });
+
+  it('inexistente → 404 sin contar', async () => {
+    prepararBaja({}, [[]]);
+    await assert.rejects(canchasService.darDeBaja(3, '99', { confirmar: true }), esNoEncontrado());
+    assert.equal(reservasService.contarFuturasActivas.mock.callCount(), 0);
+  });
+
+  it('ya inactiva → 409 TRANSICION_INVALIDA sin contar ni auditar', async () => {
+    const tx = prepararBaja({}, [[{ Activa: false }]]);
+
+    await assert.rejects(canchasService.darDeBaja(3, '1', {}), esAppError(409, 'TRANSICION_INVALIDA'));
+    assert.equal(tx.llamadas.length, 1);
+    assert.equal(reservasService.contarFuturasActivas.mock.callCount(), 0);
+    assert.equal(auditoriaService.registrar.mock.callCount(), 0);
+  });
+
+  const invalidos = [
+    ['motivo de 201 caracteres', '1', { motivo: 'm'.repeat(201) }, /^motivo: máximo 200/],
+    ['motivo vacío', '1', { motivo: '' }, /^motivo:/],
+    ['motivo no texto', '1', { motivo: 5 }, /^motivo:/],
+    ['confirmar como texto', '1', { confirmar: 'true' }, /^confirmar:/],
+    ['confirmar numérico', '1', { confirmar: 1 }, /^confirmar:/],
+    ['id inválido', 'abc', {}, /^id:/],
+  ];
+
+  for (const [caso, id, body, mensaje] of invalidos) {
+    it(`rechaza ${caso} con 400 VALIDACION sin abrir transacción`, async () => {
+      await assert.rejects(canchasService.darDeBaja(3, id, body), esValidacion(mensaje));
       assert.equal(db.enTransaccion.mock.callCount(), 0);
     });
   }
