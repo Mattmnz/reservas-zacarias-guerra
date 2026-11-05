@@ -833,14 +833,35 @@ describe('consultarCancelacion', () => {
 });
 
 describe('contarFuturasActivas', () => {
-  it('cuenta PAGADA/CONFIRMADA futuras con Activa = 1 literal', async () => {
+  it('cuenta PAGADA/CONFIRMADA futuras o en curso con Activa = 1 literal', async () => {
     const ejecutor = crearEjecutorFalso([{ Cantidad: 4 }]);
     assert.equal(await reservasService.contarFuturasActivas(ejecutor, 3), 4);
     const { texto, inputs } = ejecutor.llamadas[0];
     assert.match(texto, /WHERE Activa = 1 AND CanchaId = @canchaId/);
-    assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > @ahora/);
+    assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > DATEADD\(HOUR, -1, @ahora\)/);
     assert.equal(inputs.canchaId.valor, 3);
     assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
+  });
+
+  // Borde: con Inicio = ahora − 1 h la reserva ya es del barrido (Inicio <= …) y no entra en la baja;
+  // con Inicio = ahora − 1 h + 1 s todavía no la puede barrer y sí entra. Cada reserva queda de un solo lado.
+  it('su filtro es la negación exacta del barrido de no-show, con el mismo "ahora"', async () => {
+    const predicado = /Inicio (<=|>) (DATEADD\(HOUR, -1, @ahora\))/;
+    const conteo = crearEjecutorFalso([{ Cantidad: 0 }]);
+    await reservasService.contarFuturasActivas(conteo, 3);
+    const barrido = crearEjecutorFalso([]);
+    usarTransaccion(barrido);
+    await reservasService.barrerNoShow({});
+
+    const [, opBaja, exprBaja] = conteo.llamadas[0].texto.match(predicado);
+    const [, opBarrido, exprBarrido] = barrido.llamadas[0].texto.match(predicado);
+    assert.equal(opBaja, '>');
+    assert.equal(opBarrido, '<=');
+    assert.equal(exprBaja, exprBarrido);
+    assert.equal(
+      conteo.llamadas[0].inputs.ahora.valor.getTime(),
+      barrido.llamadas[0].inputs.ahora.valor.getTime(),
+    );
   });
 
   for (const canchaId of ['3', 0, 1.5, null]) {
@@ -889,7 +910,7 @@ describe('cancelarPorBajaDeCancha', () => {
       const { texto, inputs } = tx.llamadas[0];
       assert.match(texto, /SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = 0, ActualizadaEn = @ahora/);
       assert.match(texto, /WHERE Activa = 1 AND CanchaId = @canchaId/);
-      assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > @ahora/);
+      assert.match(texto, /Estado IN \('PAGADA', 'CONFIRMADA'\) AND Inicio > DATEADD\(HOUR, -1, @ahora\)/);
       assert.equal(inputs.canchaId.valor, 3);
       assert.equal(inputs.ahora.valor.getTime(), AHORA_NICARAGUA.getTime());
       assert.equal(cantidad, 2);
