@@ -282,6 +282,18 @@ a.tarjeta:hover {
   margin-bottom: 0;
 }
 
+/* Grupo de enlaces con forma de botón, como los bloques horarios de una cancha */
+
+.bloques {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.titulo-seccion {
+  margin-top: 1.5rem;
+}
+
 /* Avisos y estados de una pantalla: carga, vacío y error */
 
 .aviso {
