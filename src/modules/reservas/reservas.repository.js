@@ -165,6 +165,8 @@ async function cancelar(ejecutor, { id, montoPenalizado, ahora }) {
 }
 
 // Activa = 1 literal, igual que en bloquearSlot, para usar el índice filtrado.
+// Futuras o en curso: Inicio > ahora − 1 h es la negación exacta del filtro del barrido de no-show,
+// así que una reserva que el barrido todavía no puede marcar entra en la baja de la cancha (RF08).
 async function contarFuturasActivas(ejecutor, canchaId, ahora) {
   const resultado = await ejecutor
     .request()
@@ -173,7 +175,7 @@ async function contarFuturasActivas(ejecutor, canchaId, ahora) {
     .query(`
       SELECT COUNT(*) AS Cantidad FROM Reserva
       WHERE Activa = 1 AND CanchaId = @canchaId
-        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > @ahora
+        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > DATEADD(HOUR, -1, @ahora)
     `);
   return resultado.recordset[0].Cantidad;
 }
@@ -189,7 +191,7 @@ async function cancelarFuturasDeCancha(ejecutor, canchaId, ahora) {
       SET Estado = 'CANCELADA', Activa = 0, MontoPenalizado = 0, ActualizadaEn = @ahora
       OUTPUT inserted.Id, inserted.ClienteId, inserted.Inicio, inserted.Monto, deleted.Estado
       WHERE Activa = 1 AND CanchaId = @canchaId
-        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > @ahora
+        AND Estado IN ('PAGADA', 'CONFIRMADA') AND Inicio > DATEADD(HOUR, -1, @ahora)
     `);
   return resultado.recordset.map((f) => ({
     id: f.Id,
