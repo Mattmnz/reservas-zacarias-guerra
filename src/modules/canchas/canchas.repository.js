@@ -116,6 +116,17 @@ async function actualizar(ejecutor, { id, nombre, tipoCanchaId }) {
     .query('UPDATE Cancha SET Nombre = @nombre, TipoCanchaId = @tipoCanchaId WHERE Id = @id');
 }
 
+// OUTPUT DELETED.Activa distingue en una sola sentencia "no existe" (sin filas) de "ya estaba inactiva".
+// Devuelve el valor de Activa antes del cambio, o null si la cancha no existe.
+async function desactivar(ejecutor, id) {
+  const resultado = await ejecutor
+    .request()
+    .input('id', sql.Int, id)
+    .query('UPDATE Cancha SET Activa = 0 OUTPUT DELETED.Activa WHERE Id = @id');
+  const fila = resultado.recordset[0];
+  return fila ? fila.Activa : null;
+}
+
 async function activar(ejecutor, id) {
   await ejecutor
     .request()
@@ -167,6 +178,7 @@ module.exports = {
   obtenerTipo,
   insertar,
   actualizar,
+  desactivar,
   activar,
   listarTipos,
   actualizarPrecio,

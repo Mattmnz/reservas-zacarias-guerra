@@ -8,6 +8,8 @@ const canchasRepository = require('./canchas.repository');
 const INT_MAX = 2147483647;
 const NOMBRE_MAX = 50;
 const MOTIVO_MAX = 250;
+// La auditoría de la baja antepone "Reservas canceladas: N. Motivo: " (hasta 41 caracteres) y no pasa de 250.
+const MOTIVO_BAJA_MAX = 200;
 const TIPO_MAX = 10;
 // DECIMAL(10,2) llega hasta 99 999 999,99; por encima, desbordamiento y 500.
 const CENTAVOS_MAX = 9999999999;
@@ -18,6 +20,7 @@ const ACCIONES = Object.freeze({
   CREAR: 'CREAR',
   EDITAR: 'EDITAR',
   ALTA: 'ALTA',
+  BAJA: 'BAJA',
 });
 
 const ESTADOS_CANCHA = Object.freeze({
@@ -81,16 +84,23 @@ function precioValido(valor) {
 }
 
 // El registrar de auditoría lanza RangeError con más de 250: se valida antes para que sea 400 y no 500.
-function motivoValido(valor) {
+function motivoValido(valor, maximo = MOTIVO_MAX) {
   if (valor === undefined || valor === null) return null;
   if (typeof valor !== 'string' || !valor.trim()) {
     throw validacion('motivo: si se envía, debe ser texto no vacío');
   }
   const motivo = valor.trim();
-  if (motivo.length > MOTIVO_MAX) {
-    throw validacion(`motivo: máximo ${MOTIVO_MAX} caracteres`);
+  if (motivo.length > maximo) {
+    throw validacion(`motivo: máximo ${maximo} caracteres`);
   }
   return motivo;
+}
+
+// Viene en el cuerpo JSON: un "true" como texto se rechaza, igual que los números.
+function confirmarValido(valor) {
+  if (valor === undefined || valor === null) return false;
+  if (typeof valor !== 'boolean') throw validacion('confirmar: debe ser true o false');
+  return valor;
 }
 
 // Entrada del query string: llega como texto, o como arreglo si el parámetro se repite.
@@ -251,6 +261,63 @@ async function darDeAlta(usuarioId, idTexto, { motivo } = {}) {
   });
 }
 
+// reservas.service usa este módulo: requerido arriba, formaría un ciclo y reservas recibiría
+// este módulo a medio cargar. Se resuelve al llamar, cuando los dos ya terminaron de cargarse.
+function reservasService() {
+  return require('../reservas/reservas.service');
+}
+
+function textoReservasActivas(cantidad) {
+  return cantidad === 1 ? '1 reserva activa' : `${cantidad} reservas activas`;
+}
+
+// Baja lógica (RF08, issue #20). Todo en una transacción, en el orden del issue.
+async function darDeBaja(usuarioId, idTexto, { confirmar, motivo } = {}) {
+  const id = idDeRuta(idTexto);
+  const confirmada = confirmarValido(confirmar);
+  const motivoLimpio = motivoValido(motivo, MOTIVO_BAJA_MAX);
+  const reservas = reservasService();
+
+  return db.enTransaccion(async (tx) => {
+    // El UPDATE va primero: toma el bloqueo exclusivo de la cancha antes de contar, así una reserva
+    // que ya pasó obtenerActiva (HOLDLOCK) termina antes y entra en el conteo.
+    const estabaActiva = await canchasRepository.desactivar(tx, id);
+    if (estabaActiva === null) throw noEncontrada();
+    if (!estabaActiva) {
+      throw new AppError(409, 'TRANSICION_INVALIDA', 'La cancha ya está inactiva');
+    }
+
+    const activas = await reservas.contarFuturasActivas(tx, id);
+    if (activas > 0 && !confirmada) {
+      // El throw hace rollback del UPDATE: la cancha sigue activa.
+      throw new AppError(
+        409,
+        'CANCHA_CON_RESERVAS',
+        `La cancha tiene ${textoReservasActivas(activas)}. Para darla de baja y cancelarlas con reembolso total, envíe confirmar: true`,
+      );
+    }
+
+    // Con 0 no hace falta cancelar: con la cancha bloqueada no entran reservas nuevas, y el filtro
+    // solo deja afuera más reservas a medida que pasa el tiempo.
+    // Se audita lo que se canceló y no el conteo: cada función toma su propio "ahora".
+    const canceladas = activas > 0 ? await reservas.cancelarPorBajaDeCancha(tx, id, usuarioId) : 0;
+
+    await auditoriaService.registrar(tx, {
+      entidad: auditoriaService.ENTIDADES.CANCHA,
+      entidadId: id,
+      accion: ACCIONES.BAJA,
+      estadoAnterior: ESTADOS_CANCHA.ACTIVA,
+      estadoNuevo: ESTADOS_CANCHA.INACTIVA,
+      usuarioId,
+      motivo: `Reservas canceladas: ${canceladas}.${motivoLimpio ? ` Motivo: ${motivoLimpio}` : ''}`,
+    });
+
+    // Los horarios no se tocan: si la cancha se reactiva, vuelven a valer.
+    const cancha = await canchasRepository.obtenerPorId(tx, id);
+    return { ...cancha, reservasCanceladas: canceladas };
+  });
+}
+
 async function listarTipos() {
   const pool = await db.obtenerPool();
   return canchasRepository.listarTipos(pool);
@@ -315,6 +382,7 @@ module.exports = {
   crear,
   editar,
   darDeAlta,
+  darDeBaja,
   listarTipos,
   cambiarPrecio,
   obtenerActiva,
