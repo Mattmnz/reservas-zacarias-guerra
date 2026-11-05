@@ -25,3 +25,7 @@ formulario.addEventListener('submit', async (evento) => {
     boton.textContent = 'Iniciar sesión';
   }
 });
+
+// Arranca deshabilitado en el HTML: sin este listener, el envío nativo recargaría la página.
+boton.disabled = false;
+document.querySelector('[data-preparando]').hidden = true;
