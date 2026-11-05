@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { leerIdPositivo, leerInicio } from './parametros.js';
+import { leerIdPositivo, leerInicio, leerOpcion } from './parametros.js';
 
 describe('leerIdPositivo', () => {
   it('devuelve el número de un id válido', () => {
@@ -13,6 +13,20 @@ describe('leerIdPositivo', () => {
   for (const invalido of ['abc', '0', '-1', '1.5', '99999999999', '2147483648', '', ' 1', '1e3', null, undefined]) {
     it(`rechaza ${JSON.stringify(invalido)}`, () => {
       assert.equal(leerIdPositivo(invalido), null);
+    });
+  }
+});
+
+describe('leerOpcion', () => {
+  const opciones = ['CLIENTE', 'ADMIN'];
+
+  it('devuelve el texto si está entre las opciones', () => {
+    assert.equal(leerOpcion('ADMIN', opciones), 'ADMIN');
+  });
+
+  for (const invalido of ['SUPER', 'admin', '', null]) {
+    it(`rechaza ${JSON.stringify(invalido)}`, () => {
+      assert.equal(leerOpcion(invalido, opciones), null);
     });
   }
 });
