@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ESTADOS, claseEstado, reembolsoDe } from './reservas.js';
+import { ESTADOS, claseEstado, esCancelable, reembolsoDe } from './reservas.js';
 
 describe('claseEstado', () => {
   it('arma la clase de un estado simple', () => {
@@ -27,5 +27,25 @@ describe('reembolsoDe', () => {
 
   it('sin pago de reembolso devuelve 0', () => {
     assert.equal(reembolsoDe({ pagos: [cargo] }), 0);
+  });
+});
+
+describe('esCancelable', () => {
+  const AHORA = '2026-11-05T10:30:00';
+
+  it('PAGADA o CONFIRMADA que todavía no empezó', () => {
+    assert.equal(esCancelable({ estado: 'PAGADA', inicio: '2026-11-05T11:00:00' }, AHORA), true);
+    assert.equal(esCancelable({ estado: 'CONFIRMADA', inicio: '2026-11-06T08:00:00' }, AHORA), true);
+  });
+
+  it('no la ofrece si ya empezó, aunque siga PAGADA hasta el barrido', () => {
+    assert.equal(esCancelable({ estado: 'PAGADA', inicio: '2026-11-05T10:00:00' }, AHORA), false);
+    assert.equal(esCancelable({ estado: 'PAGADA', inicio: AHORA }, AHORA), false);
+  });
+
+  it('no la ofrece en estados finales', () => {
+    for (const estado of ['COMPLETADA', 'CANCELADA', 'NO_SHOW']) {
+      assert.equal(esCancelable({ estado, inicio: '2026-11-06T08:00:00' }, AHORA), false);
+    }
   });
 });
