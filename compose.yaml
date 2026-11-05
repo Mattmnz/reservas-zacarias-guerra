@@ -41,6 +41,8 @@ services:
       MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?falta MSSQL_SA_PASSWORD en .env}
       SEED_ADMIN_CORREO: ${SEED_ADMIN_CORREO:?falta SEED_ADMIN_CORREO en .env}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?falta SEED_ADMIN_PASSWORD en .env}
+      # Compose es solo el entorno local: lleva los clientes de prueba salvo que .env diga otra cosa.
+      SEED_CLIENTES_PRUEBA: ${SEED_CLIENTES_PRUEBA:-true}
     command: ["sh", "-c", "node scripts/preparar-base.js && node scripts/migrar.js && node scripts/seed.js"]
     depends_on:
       - db

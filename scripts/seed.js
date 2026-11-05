@@ -5,7 +5,17 @@ const { sql, enTransaccion, cerrarPool } = require('../src/config/db');
 const { ahoraNicaragua } = require('../src/shared/tiempo');
 const { ROLES } = require('../src/shared/constantes');
 
-const seedEnv = exigir(['SEED_ADMIN_CORREO', 'SEED_ADMIN_PASSWORD']);
+const seedEnv = exigir(['SEED_ADMIN_CORREO', 'SEED_ADMIN_PASSWORD', 'SEED_CLIENTES_PRUEBA']);
+
+// Obligatoria y sin valor por defecto: producción no lleva clientes de prueba (#35), porque sus
+// credenciales están publicadas en db/README.md. Así ningún entorno los recibe por olvido.
+if (!['true', 'false'].includes(seedEnv.SEED_CLIENTES_PRUEBA)) {
+  console.error(
+    'Variable de entorno inválida: SEED_CLIENTES_PRUEBA debe ser true o false. Revisá .env (ver .env.example).',
+  );
+  process.exit(1);
+}
+const CON_CLIENTES_PRUEBA = seedEnv.SEED_CLIENTES_PRUEBA === 'true';
 
 const TIPOS = [
   { codigo: 'SALA', nombre: 'Fútbol sala', precioHora: 600 },
@@ -27,14 +37,15 @@ const HORARIO = { apertura: '07:00:00', cierre: '22:00:00' };
 // Credenciales de prueba documentadas en db/README.md; todo el sistema es simulado.
 const PASSWORD_CLIENTES_PRUEBA = 'Cliente123!';
 
-const USUARIOS = [
-  {
-    nombre: 'Administrador',
-    correo: seedEnv.SEED_ADMIN_CORREO,
-    telefono: null,
-    password: seedEnv.SEED_ADMIN_PASSWORD,
-    rol: ROLES.ADMIN,
-  },
+const ADMIN = {
+  nombre: 'Administrador',
+  correo: seedEnv.SEED_ADMIN_CORREO,
+  telefono: null,
+  password: seedEnv.SEED_ADMIN_PASSWORD,
+  rol: ROLES.ADMIN,
+};
+
+const CLIENTES_PRUEBA = [
   {
     nombre: 'Cliente Prueba Uno',
     correo: 'cliente1@prueba.local',
@@ -50,6 +61,8 @@ const USUARIOS = [
     rol: ROLES.CLIENTE,
   },
 ];
+
+const USUARIOS = CON_CLIENTES_PRUEBA ? [ADMIN, ...CLIENTES_PRUEBA] : [ADMIN];
 
 const TABLAS = ['TipoCancha', 'Cancha', 'Horario', 'Usuario', 'Reserva', 'Pago', 'Auditoria', 'Notificacion'];
 
@@ -157,6 +170,7 @@ async function main() {
     return { creados, conteos: await contarFilas(tx) };
   });
 
+  console.log(`Clientes de prueba: ${CON_CLIENTES_PRUEBA ? 'sí' : 'no'}`);
   console.log('Filas creadas en esta ejecución:');
   for (const [tabla, n] of Object.entries(creados)) console.log(`  ${tabla.padEnd(13)} ${n}`);
   console.log('Filas totales por tabla:');
