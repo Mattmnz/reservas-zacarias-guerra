@@ -1,9 +1,8 @@
 import { pedir } from '../api.js';
-import { formatearFecha, formatearHora, formatearMonto } from '../formato.js';
-import { ESTADOS, claseEstado, crearFilaPago, reembolsoDe } from '../reservas.js';
+import { fechaHoraNicaragua, formatearFecha, formatearHora, formatearMonto } from '../formato.js';
+import { ESTADOS, claseEstado, crearFilaPago, esCancelable, reembolsoDe } from '../reservas.js';
 import { exigirRol } from '../sesion.js';
 
-const ESTADOS_CANCELABLES = ['PAGADA', 'CONFIRMADA'];
 const TEXTO_CANCELAR = 'Cancelar';
 
 await exigirRol('CLIENTE');
@@ -80,7 +79,7 @@ function crearBotonCancelar(reserva) {
   return boton;
 }
 
-function crearTarjeta(reserva) {
+function crearTarjeta(reserva, ahora) {
   const tarjeta = document.createElement('section');
   tarjeta.className = 'tarjeta';
 
@@ -108,7 +107,7 @@ function crearTarjeta(reserva) {
   tituloPagos.textContent = 'Pagos';
   tarjeta.append(tituloPagos, crearTablaPagos(reserva.pagos));
 
-  if (ESTADOS_CANCELABLES.includes(reserva.estado)) tarjeta.append(crearBotonCancelar(reserva));
+  if (esCancelable(reserva, ahora)) tarjeta.append(crearBotonCancelar(reserva));
   return tarjeta;
 }
 
@@ -116,7 +115,8 @@ async function cargar() {
   carga.hidden = false;
   try {
     const reservas = await pedir('/reservas/mias');
-    lista.replaceChildren(...reservas.map(crearTarjeta));
+    const ahora = fechaHoraNicaragua();
+    lista.replaceChildren(...reservas.map((reserva) => crearTarjeta(reserva, ahora)));
     vacio.hidden = reservas.length > 0;
   } catch (error) {
     mostrarAviso(aviso, error.mensaje);

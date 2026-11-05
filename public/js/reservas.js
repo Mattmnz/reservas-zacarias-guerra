@@ -8,6 +8,13 @@ export const ESTADOS = {
   NO_SHOW: 'No se presentó',
 };
 const TIPOS_PAGO = { CARGO: 'Cargo', REEMBOLSO: 'Reembolso' };
+const ESTADOS_CANCELABLES = ['PAGADA', 'CONFIRMADA'];
+
+// Una reserva ya empezada sigue PAGADA hasta el barrido (1 h), pero la API ya no la cancela.
+// Es solo para no ofrecer el botón: la API decide y responde TRANSICION_INVALIDA si el reloj difiere.
+export function esCancelable({ estado, inicio }, ahora) {
+  return ESTADOS_CANCELABLES.includes(estado) && inicio > ahora;
+}
 
 export function claseEstado(estado) {
   return `etiqueta--${estado.toLowerCase().replace('_', '-')}`;
