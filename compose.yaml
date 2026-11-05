@@ -20,7 +20,9 @@ x-app: &app
 
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    # Versión fija, la que se probó (SELECT @@VERSION: 16.0.4305.5). 2022-latest cambia con cada
+    # actualización acumulativa: para subir de versión, cambiar la etiqueta y volver a probar.
+    image: mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Express
