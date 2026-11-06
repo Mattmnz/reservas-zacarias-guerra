@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Horario de cancha · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/horario.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1 tabindex="-1" data-titulo>Horario de cancha</h1>
+      <p class="aviso aviso--exito" data-resultado role="status" hidden></p>
+      <p class="estado-carga" data-cargando role="status">Consultando el horario…</p>
+
+      <section data-horario hidden>
+        <h2 data-cancha></h2>
+        <p class="aviso aviso--info" data-inactiva hidden>
+          La cancha está inactiva: el horario rige cuando se reactive.
+        </p>
+        <p>
+          Marque los días que abre y elija la hora de apertura y de cierre. Un día sin marcar queda cerrado.
+          Las reservas ya hechas no cambian: el horario nuevo solo limita las reservas futuras.
+        </p>
+        <form class="tarjeta" data-formulario>
+          <div class="semana" data-semana></div>
+          <button class="boton boton--bloque" type="submit">Guardar horario</button>
+        </form>
+      </section>
+
+      <p class="titulo-seccion"><a href="/admin/canchas.html">Volver a canchas</a></p>
+
+      <dialog class="dialogo" data-dialogo aria-labelledby="dialogo-titulo">
+        <form method="dialog">
+          <h2 id="dialogo-titulo">Guardar el horario</h2>
+          <p data-dialogo-detalle></p>
+          <ul data-dialogo-cambios></ul>
+          <p class="campo__ayuda">Las reservas ya hechas no cambian.</p>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton" value="confirmar">Guardar horario</button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
