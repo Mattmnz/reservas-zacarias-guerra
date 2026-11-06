@@ -58,3 +58,7 @@ export function registrar(datos) {
 export function obtenerPerfil() {
   return pedir('/auth/yo');
 }
+
+export function obtenerNotificaciones() {
+  return pedir('/notificaciones');
+}

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Notificaciones · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/notificaciones.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1 tabindex="-1" data-titulo>Notificaciones</h1>
+      <p class="estado-carga" data-cargando role="status">Consultando sus notificaciones…</p>
+      <p class="vacio" data-vacio hidden>Todavía no tiene notificaciones.</p>
+      <div class="rejilla" data-notificaciones></div>
+    </main>
+  </body>
+</html>
