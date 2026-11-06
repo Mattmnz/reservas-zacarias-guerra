@@ -107,7 +107,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | RNF02 | Contraseñas guardadas con hash | E1 Cap. I | `auth.service.registrar` usa `bcrypt.hash`; columna `Usuario.PasswordHash` (`001_esquema.sql`); PR #32 | cumplido | |
 | RNF03.a | Acceso restringido según el rol (API) | E1 Cap. I | Igual que RF14.a; `autenticar` rechaza a los usuarios inactivos | cumplido | |
 | RNF03.b | Acceso restringido según el rol (frontend) | E1 Cap. I | Igual que RF14.b | cumplido | |
-| RNF04 | Disponibilidad en menos de 3 s bajo uso normal | E1 Cap. I | — | pendiente (#48) | El PR #58 aporta el diseño (tres consultas en total, sin N+1) y el PR #61, la herramienta (`scripts/medir-disponibilidad.js`). Falta la medición contra producción |
+| RNF04 | Disponibilidad en menos de 3 s bajo uso normal | E1 Cap. I | `scripts/medir-disponibilidad.js` (PR #61) contra producción (`https://reservas-zacarias-guerra.onrender.com`, `main` en `fe9cf37`), 05/11/2026 23:00: 75 consultas, 0 con error; mínimo 353 ms, promedio 369 ms, mediana 363 ms, p95 395 ms, máximo 544 ms | cumplido | Diseño sin N+1, con tres consultas en total (PR #58). El arranque en frío de Render y Azure SQL queda fuera del criterio y se informa aparte (803 ms en esta corrida, con el servicio ya despierto) |
 | RNF05.a | Frontend responsive: pantallas integradas | E1 Cap. I | `public/css/estilos.css` (una columna de base, dos desde 48rem; áreas táctiles de 44 px); revisión visual declarada en los PR #65, #68 y #70 a #73 | cumplido | Las pantallas de #40 se probaron también en un celular real (PR #65); las de #43, solo con emulación a 360 px (PR #68). Los PR #70 a #73 declaran revisión a 320 o 360 px y no mencionan un celular real |
 | RNF05.b | Frontend responsive: pantallas de canchas, horarios y reservas | E1 Cap. I | — | pendiente (#41, #42) | |
 | RNF06.a | Backend organizado en capas separadas | E1 Cap. I | `src/modules/<modulo>/` con `routes`, `controller`, `service` y `repository`; `src/routes.js` | cumplido | |
@@ -374,10 +374,10 @@ Corte: `develop` en `fa52647` (05/11/2026).
 
 | Estado | Filas |
 | --- | --- |
-| cumplido | 153 |
+| cumplido | 154 |
 | modificado | 18 |
 | omitido | 0 |
-| pendiente | 29 |
+| pendiente | 28 |
 | **Total** | **200** |
 
-Issues con filas pendientes: #21, #23, #41, #42, #48, #49 y #50.
+Issues con filas pendientes: #21, #23, #41, #42, #49 y #50.
