@@ -56,7 +56,7 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Canchas y horarios:** los textos de la baja, con la cantidad de reservas que informa el 409 `CANCHA_CON_RESERVAS`, salen de `js/canchas.js`; los días, las horas y los cambios de un horario, de `js/horarios.js`.
 - **Auditoría:** los nombres de las entidades, la query de los filtros y los textos de cada registro salen de `js/auditoria.js`.
 - **Indicador de no leídas:** `exigirRol` lo carga en el menú del cliente. Una página que cambia la cantidad lo actualiza con `mostrarNoLeidas(cantidad)`, de `js/sesion.js`.
-- **Reservas:** el texto y la clase del estado, las filas de pagos y el reembolso salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
+- **Reservas:** el texto y la clase del estado, la tabla de pagos, el reembolso, la query de los filtros del administrador y cuándo se ofrece confirmar, registrar asistencia o cancelar salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
 
 ## Componentes CSS
 
