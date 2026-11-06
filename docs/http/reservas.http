@@ -1,0 +1,417 @@
+# Reservas — peticiones para la extensión REST Client.
+#
+# Requiere el entorno "local" de REST Client con adminCorreo y adminPassword
+# (ver auth.http). Ejecutá las peticiones en orden. Las fechas se generan con la
+# hora de esta máquina, que se asume en hora de Nicaragua.
+#
+# Para volver a correrlo desde cero, limpiá las reservas en SSMS
+# (solo en tu base local, nunca en Azure):
+#
+#   DELETE FROM Notificacion WHERE ReservaId IS NOT NULL;
+#   DELETE FROM Pago;
+#   DELETE FROM Reserva;
+#   DELETE FROM Auditoria WHERE Entidad = 'RESERVA';
+
+@base = http://localhost:3000/api
+@manana = {{$localDatetime "YYYY-MM-DD" 1 d}}
+@tokenCliente = {{loginCliente.response.body.data.token}}
+
+### Login cliente1 → 200
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Crear reserva → 201 PAGADA, con un pago CARGO SIM-C-<id>
+# @name crearReserva
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### El mismo bloque otra vez → 409 HORARIO_OCUPADO
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### Fecha pasada → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" -1 d}}T19:00:00"
+}
+
+### Hora no en punto → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T19:30:00"
+}
+
+### Más de 30 días a futuro → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" 31 d}}T19:00:00"
+}
+
+### canchaId como texto → 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": "1",
+  "inicio": "{{manana}}T20:00:00"
+}
+
+### Cancha inexistente → 404 NO_ENCONTRADO
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 99999,
+  "inicio": "{{manana}}T19:00:00"
+}
+
+### Admin → 403 SIN_PERMISO (solo los clientes reservan)
+POST {{base}}/reservas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T21:00:00"
+}
+
+### Sin token → 401 NO_AUTENTICADO
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T21:00:00"
+}
+
+### Fuera de horario (03:00) → debe dar 400 VALIDACION
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{manana}}T03:00:00"
+}
+
+### Confirmar la reserva creada (admin) → 200 CONFIRMADA, con sus pagos
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Confirmarla otra vez → 409 TRANSICION_INVALIDA
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Confirmar como cliente → 403 SIN_PERMISO
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/confirmar
+Authorization: Bearer {{tokenCliente}}
+
+### Confirmar una reserva inexistente → 404 NO_ENCONTRADO
+PATCH {{base}}/reservas/999999/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Id no numérico → 400 VALIDACION
+PATCH {{base}}/reservas/abc/confirmar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Asistencia antes de la ventana (la reserva es mañana) → 409 TRANSICION_INVALIDA
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/asistencia
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+# Asistencia exitosa y no-show necesitan una reserva en curso o vencida. En SSMS,
+# solo en tu base local, mové la reserva creada (después de la limpieza es la última):
+#
+#   -- En curso: empieza en la hora en punto actual → asistencia 200 COMPLETADA.
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
+#   UPDATE Reserva SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())), 0)
+#   WHERE Id = @id;
+#
+#   -- Vencida: empezó hace 2 h → la petición de asistencia la barre a NO_SHOW y responde 409.
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
+#   UPDATE Reserva SET Estado = 'PAGADA', Inicio = DATEADD(HOUR, -2, Inicio) WHERE Id = @id;
+#
+# Ejecutá cada bloque por separado (cada uno declara su @id) y, después de cada uno,
+# la petición de abajo.
+
+### Registrar asistencia → 200 COMPLETADA (con la reserva en curso)
+PATCH {{base}}/reservas/{{crearReserva.response.body.data.id}}/asistencia
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Auditoría de reservas (admin) → incluye CREAR, CONFIRMAR, REGISTRAR_ASISTENCIA y MARCAR_NO_SHOW
+GET {{base}}/auditoria?entidad=RESERVA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Notificaciones del cliente → "Reserva #<id> pagada: ..."
+GET {{base}}/notificaciones
+Authorization: Bearer {{tokenCliente}}
+
+# ─── Cancelación (#18) ───────────────────────────────────────────────────────
+# Cancha 1 es SALA (C$ 600/h). Las reservas se crean a 2 y 3 días, así que la
+# cancelación es sin penalización salvo la que se mueve por SQL a menos de 24 h.
+
+### Login cliente2 → 200
+# @name loginCliente2
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente2@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Crear reserva para cancelar (cliente1, en 2 días) → 201
+# @name crearParaCancelar
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" 2 d}}T19:00:00"
+}
+
+### Costo de cancelar una reserva ajena (cliente2) → 403 SIN_PERMISO
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
+Authorization: Bearer {{loginCliente2.response.body.data.token}}
+
+### Costo de cancelar con más de 24 h → 200 { porcentajePenalizacion: 0, montoPenalizado: 0, reembolso: 600 }, sin escribir nada
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar una reserva inexistente → 404 NO_ENCONTRADO
+GET {{base}}/reservas/999999/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar con id no numérico → 400 VALIDACION
+GET {{base}}/reservas/abc/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Cancelar una reserva ajena (cliente2) → 403 SIN_PERMISO
+POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{loginCliente2.response.body.data.token}}
+
+### Motivo en blanco → 400 VALIDACION
+POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "motivo": "   "
+}
+
+### Motivo de 151 caracteres → 400 VALIDACION
+POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "motivo": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### Cancelar sin cuerpo con más de 24 h → 200 CANCELADA, montoPenalizado 0, pagos CARGO y REEMBOLSO SIM-R-<id> por 600
+POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+
+### Cancelarla otra vez → 409 TRANSICION_INVALIDA
+POST {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+
+### Costo de cancelar una reserva ya cancelada → 409 TRANSICION_INVALIDA
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Cancelar una reserva inexistente → 404 NO_ENCONTRADO
+POST {{base}}/reservas/999999/cancelar
+Authorization: Bearer {{tokenCliente}}
+
+### Crear reserva para el admin (cliente1, en 3 días) → 201
+# @name crearParaAdmin
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" 3 d}}T19:00:00"
+}
+
+### El admin cancela la reserva de cliente1 → 200 CANCELADA; auditada con el id del admin
+POST {{base}}/reservas/{{crearParaAdmin.response.body.data.id}}/cancelar
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+Content-Type: application/json
+
+{
+  "motivo": "Mantenimiento imprevisto"
+}
+
+### Crear reserva para la cancelación tardía (cliente1, en 2 días a las 20:00) → 201
+# @name crearTardia
+POST {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "canchaId": 1,
+  "inicio": "{{$localDatetime "YYYY-MM-DD" 2 d}}T20:00:00"
+}
+
+# Para el 50 %, en SSMS y solo en tu base local, mové la última reserva a dentro
+# de 2 horas (en punto, menos de 24 h):
+#
+#   DECLARE @id INT = (SELECT MAX(Id) FROM Reserva);
+#   UPDATE Reserva SET Inicio = DATEADD(HOUR, DATEDIFF(HOUR, 0, DATEADD(HOUR, -6, SYSUTCDATETIME())) + 2, 0)
+#   WHERE Id = @id;
+
+### Costo de la cancelación tardía → 200 { porcentajePenalizacion: 50, montoPenalizado: 300, reembolso: 300 }
+GET {{base}}/reservas/{{crearTardia.response.body.data.id}}/cancelacion
+Authorization: Bearer {{tokenCliente}}
+
+### Cancelación tardía con motivo → 200 CANCELADA, montoPenalizado 300, REEMBOLSO SIM-R-<id> por 300
+POST {{base}}/reservas/{{crearTardia.response.body.data.id}}/cancelar
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "motivo": "Se me cruzó un compromiso"
+}
+
+# Verificación en SSMS (solo lectura):
+#
+#   SELECT Id, Estado, Activa, Monto, MontoPenalizado FROM Reserva ORDER BY Id;
+#   SELECT ReservaId, Tipo, Monto, Referencia FROM Pago ORDER BY Id;
+#   SELECT EntidadId, Accion, EstadoAnterior, EstadoNuevo, UsuarioId, Motivo
+#   FROM Auditoria WHERE Entidad = 'RESERVA' AND Accion = 'CANCELAR' ORDER BY Id;
+
+### Auditoría de la cancelación tardía → CANCELAR con "Penalización 50 %: C$ 300.00; reembolso: C$ 300.00. Motivo: ..."
+GET {{base}}/auditoria?entidad=RESERVA&entidadId={{crearTardia.response.body.data.id}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Notificaciones del cliente → incluye las tres cancelaciones con penalización y reembolso
+GET {{base}}/notificaciones
+Authorization: Bearer {{tokenCliente}}
+
+# ─── Consultas (#19) ───────────────────────────────────────────────────────
+# Usan las reservas creadas arriba. Cada consulta barre antes los no-show vencidos.
+# Cada reserva trae canchaNombre, tipoCodigo, montoPenalizado y sus pagos; las
+# respuestas al admin agregan clienteId y clienteNombre.
+
+### Mis reservas (cliente1) → 200, de la más reciente a la más antigua, sin clienteId ni clienteNombre
+GET {{base}}/reservas/mias
+Authorization: Bearer {{tokenCliente}}
+
+### Mis reservas como admin → 403 SIN_PERMISO
+GET {{base}}/reservas/mias
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Mis reservas sin token → 401 NO_AUTENTICADO
+GET {{base}}/reservas/mias
+
+### Detalle propio (cliente1) → 200 CANCELADA, montoPenalizado 0, pagos CARGO y REEMBOLSO, sin datos del cliente
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{tokenCliente}}
+
+### Detalle de una reserva ajena (cliente2) → 403 SIN_PERMISO
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{loginCliente2.response.body.data.token}}
+
+### Detalle como admin → 200 con clienteId y clienteNombre
+GET {{base}}/reservas/{{crearParaCancelar.response.body.data.id}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Detalle de una reserva inexistente → 404 NO_ENCONTRADO
+GET {{base}}/reservas/999999
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Detalle con id no numérico → 400 VALIDACION
+GET {{base}}/reservas/abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin sin filtros → 200, en orden de agenda (Inicio ascendente), con clienteId y clienteNombre
+GET {{base}}/reservas
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin de mañana (desde = hasta, día completo) → 200
+GET {{base}}/reservas?desde={{manana}}&hasta={{manana}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin por cancha y estado → 200, solo las CANCELADA de la cancha 1
+GET {{base}}/reservas?canchaId=1&estado=CANCELADA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin de una cancha inexistente → 200 con lista vacía (es un filtro, no un recurso)
+GET {{base}}/reservas?canchaId=99999
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Filtros vacíos → 200, igual que sin filtros
+GET {{base}}/reservas?desde=&estado=
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde posterior a hasta → 400 VALIDACION
+GET {{base}}/reservas?desde={{$localDatetime "YYYY-MM-DD" 2 d}}&hasta={{manana}}
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde inexistente en el calendario → 400 VALIDACION
+GET {{base}}/reservas?desde=2026-02-30
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### desde con otro formato → 400 VALIDACION
+GET {{base}}/reservas?desde=20/10/2026
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Estado desconocido → 400 VALIDACION
+GET {{base}}/reservas?estado=PENDIENTE
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### canchaId no numérico → 400 VALIDACION
+GET {{base}}/reservas?canchaId=abc
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Parámetro repetido → 400 VALIDACION
+GET {{base}}/reservas?estado=PAGADA&estado=CANCELADA
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Listado admin como cliente → 403 SIN_PERMISO
+GET {{base}}/reservas
+Authorization: Bearer {{tokenCliente}}

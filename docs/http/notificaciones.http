@@ -1,0 +1,55 @@
+# Notificaciones — peticiones para la extensión REST Client.
+#
+# Hoy no hay notificaciones en la base: se crean con el #16 (creación de reservas).
+# Para probar ahora, insertá una a mano en SSMS para cliente1 y poné su Id en
+# idNotificacion. Sin filas, el listado da 200 con arreglo vacío.
+
+@base = http://localhost:3000/api
+@idNotificacion = 1
+
+### Login cliente1 → 200
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Login cliente2 → 200
+# @name login2
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente2@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Mis notificaciones → 200
+GET {{base}}/notificaciones
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Marcar leída → 204
+PATCH {{base}}/notificaciones/{{idNotificacion}}/leida
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Marcar leída otra vez → 204 (idempotente)
+PATCH {{base}}/notificaciones/{{idNotificacion}}/leida
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Notificación de otro usuario → 403 SIN_PERMISO
+PATCH {{base}}/notificaciones/{{idNotificacion}}/leida
+Authorization: Bearer {{login2.response.body.data.token}}
+
+### Id inexistente → 404 NO_ENCONTRADO
+PATCH {{base}}/notificaciones/999999/leida
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Id no numérico → 400 VALIDACION
+PATCH {{base}}/notificaciones/abc/leida
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Sin token → 401 NO_AUTENTICADO
+GET {{base}}/notificaciones

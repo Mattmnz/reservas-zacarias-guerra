@@ -1,0 +1,113 @@
+# Integración continua: corre en cada pull request y en cada push a develop y main.
+# Las reglas de protección de develop y main exigen que los tres jobs pasen antes del merge.
+# Despliegue continuo: al integrar en main, y solo con los tres jobs en verde, despliega en Render.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+# El workflow solo lee el repositorio.
+permissions:
+  contents: read
+
+# Un push nuevo al mismo PR o rama cancela la ejecución anterior, que ya quedó vieja.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Valores ficticios: env.js exige las variables al cargar, pero las pruebas no se conectan a
+    # ninguna base (usan ejecutores simulados). No detectan SQL roto: eso se prueba con .http y SSMS.
+    env:
+      PORT: "3000"
+      DB_SERVER: localhost
+      DB_PORT: "1433"
+      DB_NAME: ZacariasGuerra
+      DB_USER: zg_app
+      DB_PASSWORD: ficticia-ci
+      DB_CONFIAR_CERTIFICADO: "true"
+      JWT_SECRETO: ficticio-ci
+      JWT_EXPIRA: 8h
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  imagen:
+    name: Imagen Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validar compose.yaml
+        # Compose exige estas variables al interpolar; acá solo se comprueba el archivo.
+        env:
+          DB_PASSWORD: Ficticia.CI.1
+          JWT_SECRETO: ficticio-ci
+          MSSQL_SA_PASSWORD: Ficticia.CI.1
+          SEED_ADMIN_CORREO: admin@ci.local
+          SEED_ADMIN_PASSWORD: Ficticia.CI.1
+        run: docker compose config --quiet
+      - name: Construir la imagen
+        run: docker build --tag reservas-zg:ci .
+
+  autoria:
+    name: Autoría de commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Rechazar coautoría o generación automática en los mensajes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # Cada commit tiene que ser de un solo autor: es lo que se evalúa en el repositorio.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            rango="$HEAD -1"
+          else
+            rango="$BASE..$HEAD"
+          fi
+          encontrados=0
+          for commit in $(git rev-list $rango); do
+            if git log -1 --format=%B "$commit" | grep -qiE '^co-authored-by:|generated with'; then
+              echo "::error::$(git log -1 --format='%h %s' "$commit"): el mensaje declara coautoría o generación automática"
+              encontrados=1
+            fi
+          done
+          if [ "$encontrados" -eq 0 ]; then
+            echo "Revisados $(git rev-list --count $rango) commits: todos con un solo autor."
+          fi
+          exit "$encontrados"
+
+  despliegue:
+    name: Despliegue
+    # Solo un push a main (el merge de un PR); en PRs y en develop el job queda omitido.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [pruebas, imagen, autoria]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Disparar el despliegue en Render
+        env:
+          # Con esta URL cualquiera puede desplegar: va como secreto y nunca se imprime.
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "::error::Falta el secreto RENDER_DEPLOY_HOOK (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 30 -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          echo "Render recibió el pedido de despliegue de $GITHUB_SHA."

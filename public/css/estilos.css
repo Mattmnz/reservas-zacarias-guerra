@@ -1,0 +1,430 @@
+/* Única hoja de estilos del frontend. Mobile first; los componentes están en public/README.md. */
+
+:root {
+  --color-primario: #14532d;
+  --color-primario-hover: #166534;
+  --color-peligro: #b91c1c;
+  --color-peligro-hover: #991b1b;
+  --color-texto: #1c2521;
+  --color-texto-suave: #55625b;
+  --color-fondo: #f3f6f4;
+  --color-superficie: #ffffff;
+  --color-borde: #cfd8d3;
+  --color-foco: #2563eb;
+
+  --info-fondo: #e0ecfb;
+  --info-texto: #1e3a6e;
+  --error-fondo: #fde8e8;
+  --error-texto: #8f1d1d;
+  --exito-fondo: #dff3e4;
+  --exito-texto: #14532d;
+  --alerta-fondo: #fdf0d0;
+  --alerta-texto: #6f4708;
+  --neutro-fondo: #e6eae8;
+  --neutro-texto: #3c4742;
+
+  --radio: 8px;
+  --espacio: 1rem;
+  --alto-tactil: 44px;
+  --sombra: 0 1px 3px rgb(0 0 0 / 12%);
+  --fuente: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Sin esto, un display de un componente le gana al atributo hidden. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--fuente);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5rem;
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+}
+
+p {
+  margin: 0 0 var(--espacio);
+}
+
+a {
+  color: var(--color-primario);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-foco);
+  outline-offset: 2px;
+}
+
+/* Disposición */
+
+.contenedor {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+  padding: var(--espacio);
+}
+
+.contenedor--angosto {
+  max-width: 26rem;
+}
+
+.rejilla {
+  display: grid;
+  gap: var(--espacio);
+}
+
+/* Sin esto, una celda crece hasta el ancho mínimo de su contenido (una tabla con nowrap) y desborda la página */
+.rejilla > * {
+  min-width: 0;
+}
+
+/* Menú persistente */
+
+.menu {
+  background: var(--color-superficie);
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.menu__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding-block: 0.5rem;
+}
+
+.menu__marca {
+  flex: 0 0 auto;
+  color: var(--color-primario);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.menu__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  order: 1;
+  flex-basis: 100%;
+  gap: 0.25rem;
+}
+
+.menu__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: var(--alto-tactil);
+  padding-inline: 0.75rem;
+  border-radius: var(--radio);
+  color: var(--color-texto);
+  text-decoration: none;
+}
+
+.menu__enlace:hover {
+  background: var(--color-fondo);
+}
+
+.menu__enlace[aria-current='page'] {
+  background: var(--exito-fondo);
+  color: var(--exito-texto);
+  font-weight: 600;
+}
+
+.menu__indicador {
+  min-width: 1.25rem;
+  padding-inline: 0.25rem;
+  border-radius: 999px;
+  background: var(--color-peligro);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Base 0: el nombre ocupa lo que sobra y no empuja el botón a otra fila en el celular. */
+.menu__usuario {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-texto-suave);
+  font-size: 0.875rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Botones */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--alto-tactil);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-primario);
+  border-radius: var(--radio);
+  background: var(--color-primario);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.boton:hover {
+  background: var(--color-primario-hover);
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.boton--secundario {
+  background: transparent;
+  color: var(--color-primario);
+}
+
+.boton--secundario:hover {
+  background: var(--exito-fondo);
+}
+
+.boton--peligro {
+  border-color: var(--color-peligro);
+  background: var(--color-peligro);
+}
+
+.boton--peligro:hover {
+  background: var(--color-peligro-hover);
+}
+
+.boton--bloque {
+  width: 100%;
+}
+
+/* Formularios */
+
+.campo {
+  display: block;
+  margin-bottom: var(--espacio);
+}
+
+.campo__etiqueta {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.campo__ayuda {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-texto-suave);
+  font-size: 0.875rem;
+}
+
+/* 16 px como mínimo: con menos, iOS hace zoom al enfocar el campo. */
+.campo input,
+.campo select,
+.campo textarea {
+  width: 100%;
+  min-height: var(--alto-tactil);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-texto-suave);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+}
+
+/* Tarjetas */
+
+.tarjeta {
+  display: block;
+  padding: var(--espacio);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+  box-shadow: var(--sombra);
+}
+
+form.tarjeta {
+  margin-bottom: var(--espacio);
+}
+
+a.tarjeta {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.tarjeta:hover {
+  border-color: var(--color-primario);
+}
+
+.tarjeta > :last-child {
+  margin-bottom: 0;
+}
+
+/* Grupo de enlaces con forma de botón, como los bloques horarios de una cancha */
+
+.bloques {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.titulo-seccion {
+  margin-top: 1.5rem;
+}
+
+/* Avisos y estados de una pantalla: carga, vacío y error */
+
+.aviso {
+  margin-bottom: var(--espacio);
+  padding: 0.75rem var(--espacio);
+  border-radius: var(--radio);
+}
+
+.aviso--info {
+  background: var(--info-fondo);
+  color: var(--info-texto);
+}
+
+.aviso--error {
+  background: var(--error-fondo);
+  color: var(--error-texto);
+}
+
+.aviso--exito {
+  background: var(--exito-fondo);
+  color: var(--exito-texto);
+}
+
+.estado-carga,
+.vacio {
+  padding-block: 2rem;
+  color: var(--color-texto-suave);
+  text-align: center;
+}
+
+/* Etiquetas de estado de una reserva */
+
+.etiqueta {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.etiqueta--pagada {
+  background: var(--info-fondo);
+  color: var(--info-texto);
+}
+
+.etiqueta--confirmada,
+.etiqueta--completada {
+  background: var(--exito-fondo);
+  color: var(--exito-texto);
+}
+
+.etiqueta--cancelada {
+  background: var(--neutro-fondo);
+  color: var(--neutro-texto);
+}
+
+.etiqueta--no-show {
+  background: var(--alerta-fondo);
+  color: var(--alerta-texto);
+}
+
+/* Tablas: el scroll queda en el envoltorio para que la página no se desborde en el celular */
+
+.tabla-envoltorio {
+  overflow-x: auto;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  background: var(--color-superficie);
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--color-borde);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tabla tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Confirmaciones: se usan con <dialog> y showModal() */
+
+.dialogo {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 0;
+  border-radius: var(--radio);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
+  color: inherit;
+}
+
+.dialogo::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.dialogo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: var(--espacio);
+}
+
+@media (min-width: 48rem) {
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .rejilla {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .menu__opciones {
+    order: 0;
+    flex: 1 1 auto;
+    flex-basis: auto;
+  }
+
+  .menu__usuario {
+    flex: 0 1 10rem;
+  }
+}

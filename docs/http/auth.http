@@ -1,0 +1,102 @@
+# Autenticación — peticiones para la extensión REST Client.
+#
+# Las credenciales del admin no se versionan. Definí adminCorreo y adminPassword
+# como entorno "local" de REST Client en tu configuración de usuario (settings.json):
+#
+#   "rest-client.environmentVariables": {
+#     "local": {
+#       "adminCorreo": "<valor de SEED_ADMIN_CORREO>",
+#       "adminPassword": "<valor de SEED_ADMIN_PASSWORD>"
+#     }
+#   }
+#
+# Después elegí el entorno "local" (Ctrl+Alt+E) antes de ejecutar las peticiones.
+
+@base = http://localhost:3000/api
+@correoNuevo = nuevo{{$timestamp}}@prueba.local
+
+### Registro correcto → 201 { id, nombre, correo, rol: CLIENTE }, sin hash
+# @name registro
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Nuevo",
+  "correo": "  {{correoNuevo}}  ",
+  "password": "Secreta123!",
+  "telefono": "8888-0000",
+  "rol": "ADMIN"
+}
+
+### Correo duplicado → 409 CORREO_DUPLICADO
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Repetido",
+  "correo": "CLIENTE1@prueba.local",
+  "password": "Secreta123!"
+}
+
+### Registro inválido → 400 VALIDACION
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Cliente Inválido",
+  "correo": "sin-arroba",
+  "password": "corta"
+}
+
+### Login cliente1 → 200 { token, usuario }
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Login admin → 200
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "{{adminCorreo}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login con contraseña incorrecta → 401 "Correo o contraseña incorrectos"
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "cliente1@prueba.local",
+  "password": "Incorrecta123!"
+}
+
+### Login con correo inexistente → el mismo 401
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "nadie@prueba.local",
+  "password": "Cliente123!"
+}
+
+### Yo con token de cliente1 → 200
+GET {{base}}/auth/yo
+Authorization: Bearer {{login.response.body.data.token}}
+
+### Yo con token del admin → 200, rol ADMIN
+GET {{base}}/auth/yo
+Authorization: Bearer {{loginAdmin.response.body.data.token}}
+
+### Yo sin token → 401 NO_AUTENTICADO
+GET {{base}}/auth/yo
+
+### Yo con token alterado → 401 NO_AUTENTICADO
+GET {{base}}/auth/yo
+Authorization: Bearer {{login.response.body.data.token}}x

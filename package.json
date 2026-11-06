@@ -1,0 +1,26 @@
+{
+  "name": "reservas-zacarias-guerra",
+  "version": "0.1.0",
+  "description": "Backend del sistema de reservas de canchas del Complejo Deportivo Zacarías Guerra",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "db:migrar": "node scripts/migrar.js",
+    "db:seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^12.7.6"
+  }
+}

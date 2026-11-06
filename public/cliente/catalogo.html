@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Catálogo de canchas · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/catalogo.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1>Catálogo de canchas</h1>
+      <p>Elija una fecha y un horario libre para reservar.</p>
+      <form class="tarjeta" method="get">
+        <div class="rejilla">
+          <label class="campo">
+            <span class="campo__etiqueta">Fecha</span>
+            <input type="date" name="fecha" required>
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Tipo de cancha</span>
+            <select name="tipo">
+              <option value="">Todos</option>
+            </select>
+          </label>
+        </div>
+        <button class="boton boton--bloque" type="submit">Consultar disponibilidad</button>
+      </form>
+      <p class="estado-carga" data-cargando role="status">Consultando disponibilidad…</p>
+      <p class="vacio" data-vacio hidden>No hay canchas abiertas con esos filtros.</p>
+      <div class="rejilla" data-canchas></div>
+    </main>
+  </body>
+</html>

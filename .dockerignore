@@ -1,0 +1,10 @@
+# Fuera del contexto de construcción: secretos, dependencias locales y lo que la imagen no usa.
+.git
+node_modules
+.env*
+.contexto
+.vscode
+docs
+**/*.md
+**/*.test.js
+*.log
