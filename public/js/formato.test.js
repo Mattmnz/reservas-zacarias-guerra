@@ -1,7 +1,7 @@
 import { afterEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { fechaNicaragua, formatearFecha, formatearHora, formatearMonto } from './formato.js';
+import { fechaHoraNicaragua, fechaNicaragua, formatearFecha, formatearHora, formatearMonto } from './formato.js';
 
 describe('fechaNicaragua', () => {
   afterEach(() => mock.timers.reset());
@@ -19,6 +19,15 @@ describe('fechaNicaragua', () => {
   it('suma días y cruza el fin de mes', () => {
     mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-05T12:00:00Z') });
     assert.equal(fechaNicaragua(30), '2026-12-05');
+  });
+});
+
+describe('fechaHoraNicaragua', () => {
+  afterEach(() => mock.timers.reset());
+
+  it('devuelve la hora de pared de Nicaragua en el formato de la API', () => {
+    mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-05T05:59:30Z') });
+    assert.equal(fechaHoraNicaragua(), '2026-11-04T23:59:30');
   });
 });
 

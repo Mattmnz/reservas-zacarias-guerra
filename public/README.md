@@ -52,6 +52,7 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Cada pantalla:** muestra los estados de carga, vacío y error. Las acciones con efecto piden confirmación, y los montos penalizados y reembolsados se ven explícitos.
 - **Fechas y montos:** con `js/formato.js`. Las fechas de la API son hora de Nicaragua sin zona: no las formatees con métodos locales de `Date`.
 - **Parámetros de la URL:** se validan con `js/parametros.js` antes de llamar a la API.
+- **Reservas:** el texto y la clase del estado, las filas de pagos y el reembolso salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
 
 ## Componentes CSS
 
