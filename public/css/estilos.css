@@ -96,6 +96,11 @@ a {
   gap: var(--espacio);
 }
 
+/* Sin esto, una celda crece hasta el ancho mínimo de su contenido (una tabla con nowrap) y desborda la página */
+.rejilla > * {
+  min-width: 0;
+}
+
 /* Menú persistente */
 
 .menu {

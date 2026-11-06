@@ -10,6 +10,11 @@ export function fechaNicaragua(dias = 0) {
   return new Date(Date.now() - 6 * MS_HORA + dias * MS_DIA).toISOString().slice(0, 10);
 }
 
+// Hora de pared de Nicaragua en el formato de la API (YYYY-MM-DDTHH:mm:ss): se compara como texto.
+export function fechaHoraNicaragua() {
+  return new Date(Date.now() - 6 * MS_HORA).toISOString().slice(0, 19);
+}
+
 export function formatearFecha(texto) {
   return formatoFecha.format(new Date(`${texto}Z`));
 }
