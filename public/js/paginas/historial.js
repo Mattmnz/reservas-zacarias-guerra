@@ -1,6 +1,6 @@
 import { pedir } from '../api.js';
 import { fechaHoraNicaragua, formatearFecha, formatearHora, formatearMonto } from '../formato.js';
-import { ESTADOS, claseEstado, crearFilaPago, esCancelable, reembolsoDe } from '../reservas.js';
+import { ESTADOS, claseEstado, crearTablaPagos, esCancelable, reembolsoDe } from '../reservas.js';
 import { exigirRol } from '../sesion.js';
 
 const TEXTO_CANCELAR = 'Cancelar';
@@ -40,30 +40,6 @@ function crearEstado(estado) {
   etiqueta.textContent = ESTADOS[estado];
   parrafo.append('Estado: ', etiqueta);
   return parrafo;
-}
-
-function crearTablaPagos(pagos) {
-  const encabezado = document.createElement('tr');
-  for (const texto of ['Tipo', 'Monto', 'Referencia']) {
-    const celda = document.createElement('th');
-    celda.scope = 'col';
-    celda.textContent = texto;
-    encabezado.append(celda);
-  }
-  const cabecera = document.createElement('thead');
-  cabecera.append(encabezado);
-
-  const cuerpo = document.createElement('tbody');
-  cuerpo.append(...pagos.map(crearFilaPago));
-
-  const tabla = document.createElement('table');
-  tabla.className = 'tabla';
-  tabla.append(cabecera, cuerpo);
-
-  const envoltorio = document.createElement('div');
-  envoltorio.className = 'tabla-envoltorio';
-  envoltorio.append(tabla);
-  return envoltorio;
 }
 
 function crearBotonCancelar(reserva) {
