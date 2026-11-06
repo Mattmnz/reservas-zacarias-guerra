@@ -259,6 +259,52 @@ a {
   font-size: 1rem;
 }
 
+/* Casilla de verificación con su texto: el área táctil es toda la etiqueta */
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--alto-tactil);
+  font-weight: 600;
+}
+
+.casilla input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--color-primario);
+}
+
+/* Horario semanal: un día por fila; en el celular, el nombre arriba y las dos horas debajo */
+
+.semana {
+  margin-bottom: var(--espacio);
+}
+
+.semana__dia {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.semana__dia:last-child {
+  border-bottom: 0;
+}
+
+.semana__nombre {
+  grid-column: 1 / -1;
+}
+
+.semana__dia .campo {
+  margin-bottom: 0;
+}
+
+.semana__dia select:disabled {
+  opacity: 0.5;
+}
+
 /* Tarjetas */
 
 .tarjeta {
@@ -377,8 +423,9 @@ a.tarjeta:hover {
   color: var(--neutro-texto);
 }
 
-/* Sin esto, un correo o un motivo largo no se corta y desborda la página en el celular */
+/* Sin esto, un correo, un nombre de cancha o un motivo largo no se corta y desborda la página en el celular */
 .tarjeta--usuario,
+.tarjeta--cancha,
 .tarjeta--auditoria {
   overflow-wrap: anywhere;
 }
@@ -449,5 +496,14 @@ a.tarjeta:hover {
 
   .menu__usuario {
     flex: 0 1 10rem;
+  }
+
+  .semana__dia {
+    grid-template-columns: 10rem 1fr 1fr;
+    align-items: end;
+  }
+
+  .semana__nombre {
+    grid-column: auto;
   }
 }
