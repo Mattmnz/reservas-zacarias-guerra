@@ -1,16 +1,8 @@
 import { pedir } from '../api.js';
 import { formatearFecha, formatearHora, formatearMonto } from '../formato.js';
 import { leerIdPositivo } from '../parametros.js';
+import { ESTADOS, claseEstado, crearFilaPago } from '../reservas.js';
 import { exigirRol } from '../sesion.js';
-
-const ESTADOS = {
-  PAGADA: 'Pagada',
-  CONFIRMADA: 'Confirmada',
-  COMPLETADA: 'Completada',
-  CANCELADA: 'Cancelada',
-  NO_SHOW: 'No se presentó',
-};
-const TIPOS_PAGO = { CARGO: 'Cargo', REEMBOLSO: 'Reembolso' };
 
 await exigirRol('CLIENTE');
 
@@ -22,16 +14,6 @@ function mostrarError(mensaje) {
   aviso.hidden = false;
 }
 
-function crearFilaPago({ tipo, monto, referencia }) {
-  const fila = document.createElement('tr');
-  for (const texto of [TIPOS_PAGO[tipo], formatearMonto(monto), referencia]) {
-    const celda = document.createElement('td');
-    celda.textContent = texto;
-    fila.append(celda);
-  }
-  return fila;
-}
-
 function mostrarReserva(reserva, nombreTipo) {
   document.querySelector('[data-cancha]').textContent = reserva.canchaNombre;
   document.querySelector('[data-tipo]').textContent = nombreTipo;
@@ -41,7 +23,7 @@ function mostrarReserva(reserva, nombreTipo) {
 
   const estado = document.querySelector('[data-estado]');
   estado.textContent = ESTADOS[reserva.estado];
-  estado.classList.add(`etiqueta--${reserva.estado.toLowerCase().replace('_', '-')}`);
+  estado.classList.add(claseEstado(reserva.estado));
 
   // Esta página se puede recargar más tarde: el éxito solo vale si la reserva sigue recién pagada.
   document.querySelector('[data-exito]').hidden = reserva.estado !== 'PAGADA';
