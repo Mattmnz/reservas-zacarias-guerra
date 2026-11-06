@@ -7,6 +7,7 @@ import {
   exigirRol,
   guardarSesion,
   MENUS,
+  mostrarNoLeidas,
   obtenerToken,
   obtenerUsuario,
   rutaInicio,
@@ -43,8 +44,13 @@ function crearElemento() {
   };
 }
 
-function simularDocumento() {
+function simularDocumento({ conIndicador = true } = {}) {
   const elementos = new Map();
+  if (conIndicador) {
+    elementos.set('[data-no-leidas]', { ...crearElemento(), hidden: true, parentElement: crearElemento() });
+  } else {
+    elementos.set('[data-no-leidas]', null);
+  }
   simularGlobal('document', {
     createElement: crearElemento,
     querySelector(selector) {
@@ -59,8 +65,21 @@ function simularPerfil(perfil) {
   simularGlobal('fetch', async () => new Response(JSON.stringify({ data: perfil }), { status: 200 }));
 }
 
+function simularApi(perfil, notificaciones) {
+  simularGlobal(
+    'fetch',
+    mock.fn(async (url) => {
+      if (url !== '/api/notificaciones') return new Response(JSON.stringify({ data: perfil }), { status: 200 });
+      if (notificaciones === null) throw new TypeError('fetch failed');
+      return new Response(JSON.stringify({ data: notificaciones }), { status: 200 });
+    }),
+  );
+}
+
 const USUARIO = { id: 7, nombre: 'Ana', rol: 'CLIENTE' };
 const pasarTurno = () => new Promise((resolve) => setImmediate(resolve));
+const llamadasNotificaciones = () =>
+  fetch.mock.calls.filter((llamada) => llamada.arguments[0] === '/api/notificaciones').length;
 
 function textosDe(nodo) {
   return nodo.hijos.flatMap((hijo) => [hijo.textContent, ...textosDe(hijo)]);
@@ -221,6 +240,92 @@ describe('sesion', () => {
       alMostrar({ persisted: true });
 
       assert.deepEqual(location.replace.mock.calls[0].arguments, ['/login.html']);
+    });
+
+    it('cuenta solo las notificaciones no leídas en el indicador', async () => {
+      guardarSesion('abc', USUARIO);
+      simularApi(USUARIO, [{ leida: false }, { leida: true }, { leida: false }]);
+
+      await exigirRol('CLIENTE');
+      await pasarTurno();
+
+      const indicador = document.querySelector('[data-no-leidas]');
+      assert.equal(indicador.textContent, '2');
+      assert.equal(indicador.hidden, false);
+    });
+
+    it('un fallo de las notificaciones no impide mostrar la página', async () => {
+      guardarSesion('abc', USUARIO);
+      simularApi(USUARIO, null);
+
+      await exigirRol('CLIENTE');
+      await pasarTurno();
+
+      assert.equal(llamadasNotificaciones(), 1);
+      assert.equal(document.querySelector('[data-contenido]').hidden, false);
+      assert.equal(document.querySelector('[data-no-leidas]').hidden, true);
+      assert.equal(document.querySelector('[data-error]').textContent, undefined);
+    });
+
+    it('sin indicador en el menú no pide las notificaciones', async () => {
+      simularDocumento({ conIndicador: false });
+      const admin = { ...USUARIO, rol: 'ADMIN' };
+      guardarSesion('abc', admin);
+      simularApi(admin, []);
+
+      await exigirRol('ADMIN');
+      await pasarTurno();
+
+      assert.equal(llamadasNotificaciones(), 0);
+    });
+
+    it('al volver del bfcache con sesión refresca el indicador', async () => {
+      guardarSesion('abc', USUARIO);
+      simularApi(USUARIO, [{ leida: false }, { leida: false }]);
+      await exigirRol('CLIENTE');
+      await pasarTurno();
+      const [, alMostrar] = addEventListener.mock.calls[0].arguments;
+
+      simularApi(USUARIO, [{ leida: true }, { leida: false }]);
+      alMostrar({ persisted: true });
+      await pasarTurno();
+
+      assert.equal(document.querySelector('[data-no-leidas]').textContent, '1');
+      assert.equal(location.replace.mock.callCount(), 0);
+    });
+  });
+
+  describe('mostrarNoLeidas', () => {
+    it('con 0 oculta el indicador y deja el nombre simple en el enlace', () => {
+      mostrarNoLeidas(3);
+      mostrarNoLeidas(0);
+
+      const indicador = document.querySelector('[data-no-leidas]');
+      assert.equal(indicador.hidden, true);
+      assert.equal(indicador.parentElement['aria-label'], 'Notificaciones');
+    });
+
+    it('con 9 muestra la cifra exacta', () => {
+      mostrarNoLeidas(9);
+
+      const indicador = document.querySelector('[data-no-leidas]');
+      assert.equal(indicador.textContent, '9');
+      assert.equal(indicador.parentElement['aria-label'], 'Notificaciones, 9 sin leer');
+    });
+
+    it('con más de 9 muestra 9+ y anuncia la cifra real', () => {
+      mostrarNoLeidas(12);
+
+      const indicador = document.querySelector('[data-no-leidas]');
+      assert.equal(indicador.textContent, '9+');
+      assert.equal(indicador.hidden, false);
+      assert.equal(indicador.parentElement['aria-label'], 'Notificaciones, 12 sin leer');
+    });
+
+    it('sin indicador en la página no hace nada', () => {
+      simularDocumento({ conIndicador: false });
+
+      assert.doesNotThrow(() => mostrarNoLeidas(3));
     });
   });
 });

@@ -1,9 +1,10 @@
-import { obtenerPerfil } from './api.js';
+import { obtenerNotificaciones, obtenerPerfil } from './api.js';
 
 const CLAVE_TOKEN = 'zg.token';
 const CLAVE_USUARIO = 'zg.usuario';
 const CLAVE_RETORNO = 'zg.retorno';
 const RUTA_LOGIN = '/login.html';
+const MAX_INDICADOR = 9;
 
 const INICIOS = { CLIENTE: '/cliente/catalogo.html', ADMIN: '/admin/panel.html' };
 
@@ -85,7 +86,6 @@ function crearEnlace({ ruta, texto, indicadorNoLeidas }) {
   enlace.textContent = texto;
   if (location.pathname === ruta) enlace.setAttribute('aria-current', 'page');
   if (indicadorNoLeidas) {
-    // #45 lo completa con la cantidad de notificaciones no leídas.
     const indicador = document.createElement('span');
     indicador.className = 'menu__indicador';
     indicador.dataset.noLeidas = '';
@@ -125,6 +125,29 @@ function armarMenu(usuario) {
   cabecera.replaceChildren(barra);
 }
 
+// El menú del administrador no tiene indicador.
+export function mostrarNoLeidas(cantidad) {
+  const indicador = document.querySelector('[data-no-leidas]');
+  if (!indicador) return;
+  indicador.textContent = cantidad > MAX_INDICADOR ? `${MAX_INDICADOR}+` : String(cantidad);
+  indicador.hidden = cantidad === 0;
+  // Sin esto, un lector de pantalla lee "Notificaciones9+" en vez de la cifra real.
+  indicador.parentElement.setAttribute(
+    'aria-label',
+    cantidad === 0 ? 'Notificaciones' : `Notificaciones, ${cantidad} sin leer`,
+  );
+}
+
+async function actualizarNoLeidas() {
+  if (!document.querySelector('[data-no-leidas]')) return;
+  try {
+    const notificaciones = await obtenerNotificaciones();
+    mostrarNoLeidas(notificaciones.filter((n) => !n.leida).length);
+  } catch {
+    // El indicador es secundario: un fallo no debe romper la página que se está mostrando.
+  }
+}
+
 // Promesa que nunca se resuelve: el script de la página no sigue mientras el navegador redirige.
 function detener() {
   return new Promise(() => {});
@@ -132,9 +155,11 @@ function detener() {
 
 // Es lo primero que llama el script de una página protegida; devuelve el usuario autenticado.
 export async function exigirRol(rol) {
-  // Sin esto, "atrás" después de cerrar sesión muestra la página guardada en el bfcache.
+  // Sin esto, "atrás" muestra la página guardada en el bfcache: sin sesión o con la cifra vieja del indicador.
   addEventListener('pageshow', (evento) => {
-    if (evento.persisted && !obtenerToken()) location.replace(RUTA_LOGIN);
+    if (!evento.persisted) return;
+    if (obtenerToken()) actualizarNoLeidas();
+    else location.replace(RUTA_LOGIN);
   });
 
   if (!obtenerToken() || !obtenerUsuario()) {
@@ -162,6 +187,7 @@ export async function exigirRol(rol) {
   }
 
   armarMenu(perfil);
+  actualizarNoLeidas(); // Sin await: la página no espera al indicador.
   carga.hidden = true;
   document.querySelector('[data-contenido]').hidden = false;
   return { id: perfil.id, nombre: perfil.nombre, rol: perfil.rol };
