@@ -53,6 +53,7 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Fechas y montos:** con `js/formato.js`. Las fechas de la API son hora de Nicaragua sin zona: no las formatees con métodos locales de `Date`.
 - **Parámetros de la URL:** se validan con `js/parametros.js` antes de llamar a la API.
 - **Usuarios:** los nombres de los roles, la query de los filtros y los textos de cada acción salen de `js/usuarios.js`.
+- **Indicador de no leídas:** `exigirRol` lo carga en el menú del cliente. Una página que cambia la cantidad lo actualiza con `mostrarNoLeidas(cantidad)`, de `js/sesion.js`.
 - **Reservas:** el texto y la clase del estado, las filas de pagos y el reembolso salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
 
 ## Componentes CSS
@@ -66,6 +67,7 @@ Todos están en `css/estilos.css`. Los colores y medidas son variables de `:root
 | `.boton`, `--secundario`, `--peligro`, `--bloque` | Botones y enlaces con forma de botón |
 | `.campo`, `.campo__etiqueta`, `.campo__ayuda` | `<label>` con su etiqueta, control y ayuda |
 | `.tarjeta` | Superficie; también sobre un `<a>` |
+| `.tarjeta--no-leida`, `.etiqueta--no-leida` | Notificación sin leer |
 | `.bloques` | Grupo de enlaces con forma de botón, como los bloques horarios |
 | `.titulo-seccion` | Separa un bloque del anterior dentro de la página |
 | `.aviso`, `--info`, `--error`, `--exito` | Mensajes; con `role="alert"` si es un error |
