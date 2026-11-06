@@ -54,6 +54,7 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Parámetros de la URL:** se validan con `js/parametros.js` antes de llamar a la API.
 - **Usuarios:** los nombres de los roles, la query de los filtros y los textos de cada acción salen de `js/usuarios.js`.
 - **Auditoría:** los nombres de las entidades, la query de los filtros y los textos de cada registro salen de `js/auditoria.js`.
+- **Reservas:** el texto y la clase del estado, las filas de pagos y el reembolso salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
 
 ## Componentes CSS
 

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Historial de reservas · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/historial.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1>Historial de reservas</h1>
+      <p class="aviso aviso--exito" data-resultado role="status" hidden></p>
+      <p class="estado-carga" data-cargando role="status">Consultando sus reservas…</p>
+      <p class="vacio" data-vacio hidden>
+        Todavía no tiene reservas. <a href="/cliente/catalogo.html">Vaya al catálogo</a> para hacer la primera.
+      </p>
+      <div class="rejilla" data-reservas></div>
+
+      <dialog class="dialogo" data-dialogo aria-labelledby="dialogo-titulo">
+        <form method="dialog">
+          <h2 id="dialogo-titulo">Cancelar la reserva</h2>
+          <p data-dialogo-detalle></p>
+          <p class="campo__ayuda">Sin penalización con 24 horas o más de anticipación; 50 % con menos de 24 horas.</p>
+          <p>Penalización aplicable: <strong data-dialogo-porcentaje></strong></p>
+          <p>Monto penalizado: <strong data-dialogo-penalizacion></strong></p>
+          <p>Reembolso: <strong data-dialogo-reembolso></strong></p>
+          <p class="campo__ayuda">Los montos finales se informan al completar la cancelación.</p>
+          <label class="campo">
+            <span class="campo__etiqueta">Motivo (opcional)</span>
+            <textarea name="motivo" maxlength="150" rows="2" data-dialogo-motivo></textarea>
+          </label>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton boton--peligro" value="confirmar">Cancelar reserva</button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
