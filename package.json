@@ -1,7 +1,7 @@
 {
   "name": "reservas-zacarias-guerra",
-  "version": "0.1.0",
-  "description": "Backend del sistema de reservas de canchas del Complejo Deportivo Zacarías Guerra",
+  "version": "1.0.0",
+  "description": "Sistema web de reservas de canchas del Complejo Deportivo Zacarías Guerra",
   "private": true,
   "type": "commonjs",
   "main": "src/server.js",
