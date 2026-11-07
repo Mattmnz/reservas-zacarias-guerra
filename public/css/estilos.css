@@ -259,6 +259,52 @@ a {
   font-size: 1rem;
 }
 
+/* Casilla de verificación con su texto: el área táctil es toda la etiqueta */
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--alto-tactil);
+  font-weight: 600;
+}
+
+.casilla input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--color-primario);
+}
+
+/* Horario semanal: un día por fila; en el celular, el nombre arriba y las dos horas debajo */
+
+.semana {
+  margin-bottom: var(--espacio);
+}
+
+.semana__dia {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.semana__dia:last-child {
+  border-bottom: 0;
+}
+
+.semana__nombre {
+  grid-column: 1 / -1;
+}
+
+.semana__dia .campo {
+  margin-bottom: 0;
+}
+
+.semana__dia select:disabled {
+  opacity: 0.5;
+}
+
 /* Tarjetas */
 
 .tarjeta {
@@ -285,6 +331,10 @@ a.tarjeta:hover {
 
 .tarjeta > :last-child {
   margin-bottom: 0;
+}
+
+.tarjeta--no-leida {
+  border-left: 4px solid var(--color-primario);
 }
 
 /* Grupo de enlaces con forma de botón, como los bloques horarios de una cancha */
@@ -339,7 +389,8 @@ a.tarjeta:hover {
   font-weight: 600;
 }
 
-.etiqueta--pagada {
+.etiqueta--pagada,
+.etiqueta--no-leida {
   background: var(--info-fondo);
   color: var(--info-texto);
 }
@@ -358,6 +409,25 @@ a.tarjeta:hover {
 .etiqueta--no-show {
   background: var(--alerta-fondo);
   color: var(--alerta-texto);
+}
+
+/* Estado de un usuario */
+
+.etiqueta--activo {
+  background: var(--exito-fondo);
+  color: var(--exito-texto);
+}
+
+.etiqueta--inactivo {
+  background: var(--neutro-fondo);
+  color: var(--neutro-texto);
+}
+
+/* Sin esto, un correo, un nombre de cancha o un motivo largo no se corta y desborda la página en el celular */
+.tarjeta--usuario,
+.tarjeta--cancha,
+.tarjeta--auditoria {
+  overflow-wrap: anywhere;
 }
 
 /* Tablas: el scroll queda en el envoltorio para que la página no se desborde en el celular */
@@ -426,5 +496,14 @@ a.tarjeta:hover {
 
   .menu__usuario {
     flex: 0 1 10rem;
+  }
+
+  .semana__dia {
+    grid-template-columns: 10rem 1fr 1fr;
+    align-items: end;
+  }
+
+  .semana__nombre {
+    grid-column: auto;
   }
 }

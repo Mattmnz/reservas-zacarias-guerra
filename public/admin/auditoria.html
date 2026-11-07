@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Auditoría · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/auditoria.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1>Auditoría</h1>
+      <form class="tarjeta" method="get">
+        <div class="rejilla">
+          <label class="campo">
+            <span class="campo__etiqueta">Entidad</span>
+            <select name="entidad">
+              <option value="">Todas</option>
+              <option value="RESERVA">Reserva</option>
+              <option value="CANCHA">Cancha</option>
+              <option value="USUARIO">Usuario</option>
+            </select>
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Id de la entidad</span>
+            <input type="number" name="entidadId" min="1" max="2147483647" step="1" inputmode="numeric">
+          </label>
+        </div>
+        <button class="boton boton--bloque" type="submit">Filtrar</button>
+      </form>
+      <p class="estado-carga" data-cargando role="status">Consultando la auditoría…</p>
+      <p class="vacio" data-vacio hidden>No hay registros con esos filtros.</p>
+      <div class="rejilla" data-registros></div>
+    </main>
+  </body>
+</html>

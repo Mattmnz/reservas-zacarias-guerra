@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestionar canchas · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/canchas.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1 tabindex="-1" data-titulo>Gestionar canchas</h1>
+      <p class="aviso aviso--exito" data-resultado role="status" hidden></p>
+
+      <form class="tarjeta" data-nueva>
+        <h2>Nueva cancha</h2>
+        <div class="rejilla">
+          <label class="campo">
+            <span class="campo__etiqueta">Nombre</span>
+            <input name="nombre" maxlength="50" required autocomplete="off">
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Tipo de cancha</span>
+            <select name="tipoCanchaId" required data-tipos></select>
+          </label>
+        </div>
+        <p class="campo__ayuda">El precio por hora depende del tipo. La cancha se crea activa y sin horario: defínalo después.</p>
+        <button class="boton boton--bloque" type="submit" data-crear>Crear cancha</button>
+      </form>
+
+      <h2 class="titulo-seccion">Canchas</h2>
+      <p class="estado-carga" data-cargando role="status">Consultando las canchas…</p>
+      <p class="vacio" data-vacio hidden>Todavía no hay canchas. Cree la primera con el formulario de arriba.</p>
+      <div class="rejilla" data-canchas></div>
+
+      <dialog class="dialogo" data-edicion aria-labelledby="edicion-titulo">
+        <form method="dialog" data-edicion-formulario>
+          <h2 id="edicion-titulo">Editar la cancha</h2>
+          <p class="aviso aviso--error" data-edicion-error role="alert" hidden></p>
+          <label class="campo">
+            <span class="campo__etiqueta">Nombre</span>
+            <input name="nombre" maxlength="50" required autocomplete="off">
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Tipo de cancha</span>
+            <select name="tipoCanchaId" required data-tipos></select>
+          </label>
+          <p class="campo__ayuda">Cambiar el tipo cambia el precio de las reservas nuevas; las ya hechas conservan su monto.</p>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver" formnovalidate>Volver</button>
+            <button class="boton" value="guardar">Guardar cambios</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog class="dialogo" data-dialogo aria-labelledby="dialogo-titulo">
+        <form method="dialog">
+          <h2 id="dialogo-titulo" data-dialogo-titulo></h2>
+          <p data-dialogo-detalle></p>
+          <p data-dialogo-consecuencia></p>
+          <label class="campo">
+            <span class="campo__etiqueta">Motivo (opcional)</span>
+            <textarea name="motivo" rows="2" data-dialogo-motivo></textarea>
+          </label>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton" value="confirmar" data-dialogo-confirmar></button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
