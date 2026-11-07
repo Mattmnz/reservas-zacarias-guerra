@@ -1,6 +1,8 @@
 # Integración continua: corre en cada pull request y en cada push a develop y main.
-# Las reglas de protección de develop y main exigen que los tres jobs pasen antes del merge.
-# Despliegue continuo: al integrar en main, y solo con los tres jobs en verde, despliega en Render.
+# Las reglas de protección de develop y main exigen que Pruebas, Imagen Docker y Autoría de commits
+# pasen antes del merge.
+# Despliegue continuo: al mergear en main, y solo con esos tres jobs en verde, publica la imagen
+# en GHCR y Render la despliega.
 name: CI
 
 on:
@@ -60,6 +62,9 @@ jobs:
         run: docker compose config --quiet
       - name: Construir la imagen
         run: docker build --tag reservas-zg:ci .
+      - name: Prueba de humo
+        # Levanta el contenedor sin base y comprueba que el frontend y la API responden.
+        run: bash .github/scripts/prueba-humo.sh reservas-zg:ci
 
   autoria:
     name: Autoría de commits
@@ -92,11 +97,50 @@ jobs:
           fi
           exit "$encontrados"
 
+  publicar:
+    name: Publicar imagen
+    # Solo un push a main (el merge de un PR); en PRs y en develop el job queda omitido.
+    # No es un check obligatorio: si lo fuera, los PRs lo esperarían para siempre.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [pruebas, imagen, autoria]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Solo este job puede escribir en el registro de paquetes.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construir la imagen con sus etiquetas
+        run: |
+          # GHCR exige el nombre en minúsculas: ghcr.io/mattmnz/reservas-zacarias-guerra.
+          imagen="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "IMAGEN=$imagen" >> "$GITHUB_ENV"
+          echo "ETIQUETA_SHA=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$imagen:latest" \
+            --tag "$imagen:sha-${GITHUB_SHA::7}" .
+      - name: Prueba de humo
+        # Se prueba la misma imagen que se sube: no se vuelve a construir.
+        run: bash .github/scripts/prueba-humo.sh "$IMAGEN:latest"
+      - name: Iniciar sesión en GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Subir la imagen
+        run: |
+          # Primero la etiqueta del commit: latest se mueve solo si la otra subió bien.
+          docker push "$IMAGEN:$ETIQUETA_SHA"
+          docker push "$IMAGEN:latest"
+          echo "Publicada $IMAGEN con las etiquetas latest y $ETIQUETA_SHA."
+
   despliegue:
     name: Despliegue
     # Solo un push a main (el merge de un PR); en PRs y en develop el job queda omitido.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [pruebas, imagen, autoria]
+    needs: [pruebas, imagen, autoria, publicar]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -109,5 +153,6 @@ jobs:
             echo "::error::Falta el secreto RENDER_DEPLOY_HOOK (Settings > Secrets and variables > Actions)"
             exit 1
           fi
+          # Render despliega la imagen latest que acaba de publicar el job anterior.
           curl --fail --silent --show-error --max-time 30 -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
           echo "Render recibió el pedido de despliegue de $GITHUB_SHA."
