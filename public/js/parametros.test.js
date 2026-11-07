@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { leerIdPositivo, leerInicio, leerOpcion } from './parametros.js';
+import { leerFecha, leerIdPositivo, leerInicio, leerOpcion } from './parametros.js';
 
 describe('leerIdPositivo', () => {
   it('devuelve el número de un id válido', () => {
@@ -56,6 +56,19 @@ describe('leerInicio', () => {
   for (const invalido of invalidos) {
     it(`rechaza ${JSON.stringify(invalido)}`, () => {
       assert.equal(leerInicio(invalido), null);
+    });
+  }
+});
+
+describe('leerFecha', () => {
+  it('devuelve una fecha válida tal cual', () => {
+    assert.equal(leerFecha('2026-11-06'), '2026-11-06');
+    assert.equal(leerFecha('2028-02-29'), '2028-02-29');
+  });
+
+  for (const invalida of ['2026-02-30', '2026-13-01', '2026-11-6', '2026-11-06T00:00:00', '', ' 2026-11-06', null]) {
+    it(`rechaza ${JSON.stringify(invalida)}`, () => {
+      assert.equal(leerFecha(invalida), null);
     });
   }
 });

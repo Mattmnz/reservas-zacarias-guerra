@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reservas del complejo · Zacarías Guerra</title>
+    <link rel="stylesheet" href="/css/estilos.css">
+    <script type="module" src="/js/paginas/reservas.js"></script>
+  </head>
+  <body>
+    <header data-menu></header>
+    <p class="estado-carga" data-carga role="status">Cargando…</p>
+    <p class="contenedor aviso aviso--error" data-error role="alert" hidden></p>
+    <main class="contenedor" data-contenido hidden>
+      <h1 tabindex="-1" data-titulo>Reservas del complejo</h1>
+      <p class="aviso aviso--exito" data-resultado role="status" hidden></p>
+      <form class="tarjeta" method="get" data-filtros>
+        <div class="rejilla">
+          <label class="campo">
+            <span class="campo__etiqueta">Desde</span>
+            <input type="date" name="desde">
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Hasta</span>
+            <input type="date" name="hasta">
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Cancha</span>
+            <select name="canchaId" data-canchas>
+              <option value="">Todas</option>
+            </select>
+          </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Estado</span>
+            <select name="estado" data-estados>
+              <option value="">Todos</option>
+            </select>
+          </label>
+        </div>
+        <p class="campo__ayuda">Las fechas incluyen el día completo. Sin fechas, se muestran todas las reservas.</p>
+        <button class="boton boton--bloque" type="submit">Filtrar</button>
+      </form>
+      <p class="estado-carga" data-cargando role="status">Consultando las reservas…</p>
+      <p data-total hidden></p>
+      <p class="vacio" data-vacio hidden>No hay reservas con esos filtros.</p>
+      <div class="rejilla" data-reservas></div>
+
+      <dialog class="dialogo" data-dialogo-accion aria-labelledby="accion-titulo">
+        <form method="dialog">
+          <h2 id="accion-titulo" data-accion-titulo></h2>
+          <p data-accion-detalle></p>
+          <p data-accion-consecuencia></p>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton" value="confirmar" data-accion-confirmar></button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog class="dialogo" data-dialogo-cancelar aria-labelledby="cancelar-titulo">
+        <form method="dialog">
+          <h2 id="cancelar-titulo">Cancelar la reserva</h2>
+          <p data-cancelar-detalle></p>
+          <p class="campo__ayuda">Misma regla que para el cliente: sin penalización con 24 horas o más de anticipación; 50 % con menos de 24 horas.</p>
+          <p>Penalización aplicable: <strong data-cancelar-porcentaje></strong></p>
+          <p>Monto penalizado: <strong data-cancelar-penalizacion></strong></p>
+          <p>Reembolso: <strong data-cancelar-reembolso></strong></p>
+          <p class="campo__ayuda">Los montos finales se informan al completar la cancelación. Se notifica al cliente.</p>
+          <label class="campo">
+            <span class="campo__etiqueta">Motivo (opcional)</span>
+            <textarea name="motivo" maxlength="150" rows="2" data-cancelar-motivo></textarea>
+          </label>
+          <div class="dialogo__acciones">
+            <button class="boton boton--secundario" value="volver">Volver</button>
+            <button class="boton boton--peligro" value="confirmar">Cancelar reserva</button>
+          </div>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>

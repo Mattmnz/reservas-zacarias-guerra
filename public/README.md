@@ -53,9 +53,10 @@ N4, N6 y N9 no van en el menú: se enlazan desde su nodo de origen. Las demás r
 - **Fechas y montos:** con `js/formato.js`. Las fechas de la API son hora de Nicaragua sin zona: no las formatees con métodos locales de `Date`.
 - **Parámetros de la URL:** se validan con `js/parametros.js` antes de llamar a la API.
 - **Usuarios:** los nombres de los roles, la query de los filtros y los textos de cada acción salen de `js/usuarios.js`.
+- **Canchas y horarios:** los textos de la baja, con la cantidad de reservas que informa el 409 `CANCHA_CON_RESERVAS`, salen de `js/canchas.js`; los días, las horas y los cambios de un horario, de `js/horarios.js`.
 - **Auditoría:** los nombres de las entidades, la query de los filtros y los textos de cada registro salen de `js/auditoria.js`.
 - **Indicador de no leídas:** `exigirRol` lo carga en el menú del cliente. Una página que cambia la cantidad lo actualiza con `mostrarNoLeidas(cantidad)`, de `js/sesion.js`.
-- **Reservas:** el texto y la clase del estado, las filas de pagos y el reembolso salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
+- **Reservas:** el texto y la clase del estado, la tabla de pagos, el reembolso, la query de los filtros del administrador y cuándo se ofrece confirmar, registrar asistencia o cancelar salen de `js/reservas.js`. La penalización y el reembolso los da la API: la pantalla no los calcula.
 
 ## Componentes CSS
 
@@ -75,7 +76,9 @@ Todos están en `css/estilos.css`. Los colores y medidas son variables de `:root
 | `.estado-carga`, `.vacio` | Estados de carga y de lista vacía |
 | `.etiqueta`, `--pagada`, `--confirmada`, `--completada`, `--cancelada`, `--no-show` | Estado de una reserva |
 | `.etiqueta--activo`, `--inactivo` | Estado de un usuario |
-| `.tarjeta--usuario`, `.tarjeta--auditoria` | Tarjeta que corta un correo o un motivo largo en el celular |
+| `.tarjeta--usuario`, `.tarjeta--cancha`, `.tarjeta--auditoria` | Tarjeta que corta un correo, un nombre o un motivo largo en el celular |
+| `.casilla` | Casilla de verificación con su texto, con el alto táctil |
+| `.semana`, `.semana__dia`, `.semana__nombre` | Horario semanal: un día por fila, con las dos horas debajo en el celular |
 | `.tabla-envoltorio`, `.tabla` | Tabla con scroll propio en el celular |
 | `.dialogo`, `.dialogo__acciones` | Confirmación con `<dialog>` y `showModal()` |
 
