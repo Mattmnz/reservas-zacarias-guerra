@@ -258,58 +258,72 @@ Se copia esta plantilla por cada corrida y se completa al ejecutarla. No se anot
 
 ### Resultado por paso
 
-Resultado: `OK`, `FALLA` u `Omitido`.
+### Corrida 1: 06/11/2026
+
+| Dato | Valor |
+| --- | --- |
+| Fecha | 06/11/2026 |
+| Entorno y URL | Producción, https://reservas-zacarias-guerra.onrender.com |
+| Commit desplegado | `46223e4` (`main`) |
+| Quién presenta | Álvaro Garay |
+| `T` y `Δ` real | `T` = 21:00 (inicio real 21:10); `Δ` real: <minutos> min |
+| Inicio de `Rns` | 20:00, Sala 1 (reserva #<id>) |
+| Inicio de `Ra1` y `Ra2`; cuál se usó | `Ra1` 21:00, Sala 2 (reserva #<id>), usada en el paso 21. `Ra2` no se creó: caería a las 22:00, fuera de horario |
+| Salas distintas de las previstas | Ninguna. `R2` quedó para el 07/11 a las 07:00: con `T` = 21:00 no hay bloques hoy a 2 h o más de `T` |
+
+Los pasos se ejecutaron con las pantallas desplegadas en producción. Los pasos 4, 11 y 17 se verificaron por pantalla.
+
+#### Resultado por paso
 
 | Paso | Resultado | Hora | Observaciones | Issue |
 | --- | --- | --- | --- | --- |
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
-| 4 | | | | |
-| 5 | | | | |
-| 6 | | | | |
-| 7 | | | | |
-| 8 | | | | |
-| 9 | | | | |
-| 10 | | | | |
-| 11 | | | | |
-| 12 | | | | |
-| 13 | | | | |
-| 14 | | | | |
-| 15 | | | | |
-| 16 | | | | |
-| 17 | | | | |
-| 18 | | | | |
-| 19 | | | | |
-| 20 | | | | |
-| 21 | | | | |
-| 22 | | | | |
-| 23 | | | | |
-| 24 | | | | |
-| 25 | | | | |
-| 26 | | | | |
-| 27 | | | | |
-| 28 | | | | |
-| 29 | | | | |
-| 30 | | | | |
-| 31 | | | | |
-| 32 | | | | |
-| 33 | | | | |
-| 34 | | | | |
-| 35 | | | | |
-| 36 | | | | |
-| 37 | | | | |
-| 38 | | | | |
-| 39 | | | | |
-| Cierre | | | | |
+| 1 | OK | | CD registrado con `cliente.demo.0611@demo.local` | |
+| 2 | OK | | | |
+| 3 | OK | | | |
+| 4 | OK | | Por pantalla: `/admin/usuarios.html` como cliente vuelve al catálogo | |
+| 5 | OK | | Fecha 08/11, tipo Sala | |
+| 6 | OK | | `R1` #<id>: Sala 3, 08/11 19:00, CARGO C$ 600 | |
+| 7 | OK | | `R2` #<id>: Sala 3, 07/11 07:00, CARGO C$ 600 | |
+| 8 | OK | | `R3` #<id>: Sala 4, 08/11 20:00, de CD; CP recibió las alternativas de Sala 4 | |
+| 9 | OK | | | |
+| 10 | OK | | | |
+| 11 | OK | | Por pantalla: CP abre la confirmación de `R1` y recibe un error de permisos | |
+| 12 | OK | | 0 %, reembolso C$ 600 | |
+| 13 | OK | | 50 %, penalizado C$ 300, reembolso C$ 300 | |
+| 14 | OK | | | |
+| 15 | OK | | | |
+| 16 | OK | | | |
+| 17 | OK | | Por pantalla: `/cliente/catalogo.html` como administrador vuelve al panel | |
+| 18 | OK | | | |
+| 19 | OK | | | |
+| 20 | OK | | | |
+| 21 | OK | <hh:mm> | Asistencia de `Ra1` → Completada | |
+| 22 | OK | | `Rns` en No-show, penalizado C$ 600, solo CARGO | |
+| 23 | OK | | | |
+| 24 | OK | | 0 %, reembolso C$ 600 | |
+| 25 | OK | | Cancha `Demo 0611-2110` #<id> | |
+| 26 | OK | | | |
+| 27 | OK | | | |
+| 28 | OK | | `R4` #<id>: Cancha Demo, 08/11 19:00, CARGO C$ 1,200 | |
+| 29 | OK | | Alerta con 1 reserva activa; la cancha sigue activa | |
+| 30 | OK | | | |
+| 31 | OK | | `R4` cancelada con reembolso C$ 1,200 | |
+| 32 | OK | | | |
+| 33 | OK | | | |
+| 34 | OK | | | |
+| 35 | OK | | | |
+| 36 | OK | | | |
+| 37 | OK | | Vista móvil del navegador a 360 px | |
+| 38 | OK | | Salida guardada de la medición del 05/11 | |
+| 39 | Omitido | | No se ejecutó en esta corrida. Evidencia de la prueba: PR #56 | |
+| Cierre | OK | | Cancha Demo inactiva; `R1` a `R4` canceladas; CD activo y como cliente; `Ra1` completada | |
 
-### Evidencia de RNF
+#### Evidencia de RNF
 
 | RNF | Resultado | Fecha | Entorno | Dónde está la salida |
 | --- | --- | --- | --- | --- |
-| RNF04 | | | Producción | |
-| RNF09 | | | Base local | |
-
+| RNF04 | Cumple: 75 consultas, 0 con error, promedio 369 ms, máximo 544 ms | 05/11/2026 23:00 | Producción (`main` en `fe9cf37`) | PR #79 y fila RNF04 de `docs/trazabilidad.md` |
+| RNF09 | No ejecutada en esta corrida | — | Base local | Evidencia de la prueba: PR #56 y fila RNF09.b de `docs/trazabilidad.md` |
 ## 9. Reporte de fallas
 
 Toda falla se reporta como issue `bug`, asignado al dueño del módulo.
