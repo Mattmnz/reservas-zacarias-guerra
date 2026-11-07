@@ -103,7 +103,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Justificación / nota |
 | --- | --- | --- | --- | --- | --- |
-| RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | — | pendiente (#21) | Sin prueba con personas externas (recorte 3, sección 7). Queda respaldado por `docs/guion-demo.md` y su corrida contra producción del 06/11, que entra con el PR #88 |
+  | RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | `docs/guion-demo.md`: recorrido completo por las pantallas y registro de la corrida 1 contra producción (06/11/2026), sin errores; PR #74 y #88 | cumplido | Sin prueba con personas externas (recorte 3, sección 7) |
 | RNF02 | Contraseñas guardadas con hash | E1 Cap. I | `auth.service.registrar` usa `bcrypt.hash`; columna `Usuario.PasswordHash` (`001_esquema.sql`); PR #32 | cumplido | |
 | RNF03.a | Acceso restringido según el rol (API) | E1 Cap. I | Igual que RF14.a; `autenticar` rechaza a los usuarios inactivos | cumplido | |
 | RNF03.b | Acceso restringido según el rol (frontend) | E1 Cap. I | Igual que RF14.b | cumplido | |
