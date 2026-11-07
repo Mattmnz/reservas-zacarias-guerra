@@ -12,7 +12,7 @@ Este documento nunca lleva secretos: las variables van por nombre y función, y 
 - SQL Server Management Studio (SSMS).
 - Acceso a los recursos de Azure y de Render, y permisos en el repositorio.
 
-Docker no es necesario para desplegar, porque la imagen no se construye en la máquina de quien despliega (sección 3.1). Para el entorno local con Docker, ver la sección «Con Docker» del `README.md`.
+Docker no es necesario para desplegar, porque Render ejecuta la imagen que publica el CI (sección 3.1). Para el entorno local con Docker, ver la sección «Con Docker» del `README.md`.
 
 En Windows PowerShell, `curl` es un alias de otro comando: usar `curl.exe`, como en este documento.
 
@@ -28,7 +28,7 @@ GitHub Actions (ci.yml): Pruebas + Imagen Docker + Autoría de commits
 GitHub Actions: Publicar imagen (GHCR), y después Despliegue hace POST al deploy hook
     |
     v
-Render: arranca la API y el frontend (de dónde sale la imagen: sección 3.1)
+Render: descarga la imagen latest de GHCR y arranca la API y el frontend
     |  SQL con el usuario zg_app (solo lectura y escritura de filas)
     v
 Azure SQL Database: servidor zg-reservas-mnz, base ZacariasGuerra
@@ -37,8 +37,8 @@ Azure SQL Database: servidor zg-reservas-mnz, base ZacariasGuerra
 | Pieza | Región | Plan | Motivo |
 | --- | --- | --- | --- |
 | GitHub Actions | No aplica | No aplica | Impide integrar cambios con pruebas o imagen rotas, y despliega solo lo que llega a `main` con esos controles en verde |
-| GitHub Container Registry (GHCR) | No aplica | No aplica | Guarda la imagen de cada merge en `main`, con las etiquetas `latest` y `sha-<commit>` |
-| Render, servicio Docker | Ohio | Gratuito | Ejecuta una sola imagen con la API y el frontend (`public/`, servido por Express). Sale del mismo `Dockerfile` que se usa en Compose y en CI |
+| GitHub Container Registry (GHCR) | No aplica | No aplica | Guarda en un paquete público la imagen de cada merge en `main`, con las etiquetas `latest` y `sha-<commit>` |
+| Render, servicio web | Ohio | Gratuito | Ejecuta la imagen `latest` de GHCR, una sola imagen con la API y el frontend (`public/`, servido por Express). Se construye con el mismo `Dockerfile` que se usa en Compose |
 | Azure SQL Database | Central US | Oferta gratuita | El hosting gratuito no ofrece disco persistente ni la memoria que SQL Server requiere, así que la base no puede vivir junto a la aplicación |
 
 Las regiones no son arbitrarias: Central US porque East US no aceptaba servidores nuevos en esa suscripción, y Ohio porque es la región de Render más cercana a Central US.
@@ -172,28 +172,18 @@ Tiene que quedar:
 | Ajuste | Valor |
 | --- | --- |
 | Nombre | `reservas-zacarias-guerra`, en el espacio de trabajo «UNI» |
-| Tipo | Servicio web Docker, con el `Dockerfile` de la raíz |
-| Rama | `main` |
-| Repositorio | Conectado con la integración de GitHub. La app de Render tiene acceso solo a este repositorio |
+| Tipo | Servicio web que ejecuta una imagen ya publicada |
+| Imagen | `ghcr.io/mattmnz/reservas-zacarias-guerra:latest`, paquete público en GHCR |
+| Variables | Las de la sección 3.2 |
 | Región | Ohio |
 | Plan | Gratuito |
 | Puerto | `PORT=3000`, que coincide con el `EXPOSE` del `Dockerfile`. El valor por defecto de Render es 10000 |
 | Chequeo de salud | `/`, a propósito: no consulta la base. `/api/health` hace `SELECT 1` y despertaría la base en cada chequeo, consumiendo el cupo gratuito |
 | Auto-deploy | Apagado |
 
-`.dockerignore` deja fuera `.env*`: la imagen no lleva secretos y los valores se configuran en el servicio.
+La imagen la construye y la publica el job `Publicar imagen` (sección 4.1). Render solo la descarga y la ejecuta.
 
-**Origen de la imagen.** Hoy Render construye la imagen con el `Dockerfile` de la rama `main`. El job `Publicar imagen` sube otra imagen a GHCR, pero producción todavía no la ejecuta.
-
-**Aviso de transición.** Las secciones «Integración y despliegue continuos» y «Producción» del `README.md` describen a Render ejecutando la imagen `latest` de GHCR. Ese es el estado posterior a dos pasos pendientes: la primera corrida de `Publicar imagen` en `main` y el cambio del servicio a la imagen de GHCR. Cuando se hagan, hay que actualizar lo que depende del origen de la imagen: esta sección, la comprobación de versión de la sección 6.1, el paso de GHCR de la sección 6.3 y la fila `Publicar imagen` de la sección 7.
-
-Pasos para crear el servicio. Están **reconstruidos a partir de la configuración que quedó, no recordados**: la secuencia exacta del portal puede variar. Lo que vale es la tabla de arriba.
-
-1. En el dashboard de Render: **New → Web Service**, y elegir el repositorio `reservas-zacarias-guerra`.
-2. Nombre `reservas-zacarias-guerra`, región **Ohio**, rama `main`, entorno **Docker**, plan **Free**.
-3. Cargar las variables de entorno (sección 3.2).
-4. En las opciones avanzadas: **Health Check Path** en `/` y **Auto-Deploy** en No.
-5. Crear el servicio.
+`.dockerignore` deja fuera `.env*`: la imagen no lleva secretos y los valores se configuran en el servicio. Esto importa porque el paquete es público.
 
 ### 3.2 Variables de entorno
 
@@ -235,7 +225,7 @@ El workflow es `.github/workflows/ci.yml` y tiene permiso de lectura sobre el re
 | `Imagen Docker` | `docker compose config --quiet`, `docker build` y la prueba de humo (`.github/scripts/prueba-humo.sh`) | Que `compose.yaml` sea válido, que la imagen se construya y que el contenedor arranque y responda sin base de datos: `/` con la página de entrada, `/api/auth/yo` sin token con 401 y una ruta inexistente con 404 |
 | `Autoría de commits` | Revisa los mensajes de los commits del cambio | Que cada commit tenga un solo autor: rechaza líneas `Co-authored-by:` y el texto `generated with` |
 | `Publicar imagen` | Solo en un push a `main` y con los tres anteriores en verde: construye la imagen, le corre la prueba de humo y sube esa misma imagen a `ghcr.io/mattmnz/reservas-zacarias-guerra` con las etiquetas `latest` y `sha-<commit>` (los 7 primeros caracteres del commit) | Que al registro llegue solo una imagen probada. La etiqueta del commit sube primero: `latest` se mueve solo si esa subió bien |
-| `Despliegue` | `POST` al deploy hook, después de `Publicar imagen`. Requiere los otros cuatro en verde | Que a producción llegue solo lo integrado en `main` con los controles aprobados |
+| `Despliegue` | `POST` al deploy hook, después de `Publicar imagen`, y Render descarga la imagen `latest`. Requiere los otros cuatro en verde | Que a producción llegue solo lo integrado en `main` con los controles aprobados |
 
 ### 4.2 Secreto `RENDER_DEPLOY_HOOK`
 
@@ -259,7 +249,7 @@ La lista tiene que incluir `RENDER_DEPLOY_HOOK`.
 
 - Un push nuevo al mismo PR o rama cancela la ejecución anterior. Con dos merges seguidos a `main`, el segundo reemplaza al primero.
 - `Publicar imagen` y `Despliegue` no son checks obligatorios: corren después del merge, cuando el cambio ya está en `main`.
-- **`Despliegue` en verde significa que Render recibió el pedido, no que la versión esté en línea.** La verificación es manual a propósito (sección 6.1), y es obligatoria después de cada despliegue. No va al CI por dos motivos: el despliegue en el plan gratuito tarda varios minutos y el job tendría que esperarlo, y consultar `/api/health` gasta cupo de la base.
+- **`Despliegue` en verde significa que Render recibió el pedido, no que la versión esté en línea.** La verificación es manual a propósito (sección 6.1), y es obligatoria después de cada despliegue. No va al CI por dos motivos: el job tendría que esperar a que termine el despliegue, y consultar `/api/health` gasta cupo de la base.
 
 Se comprueba el resultado de la última ejecución en `main`:
 
@@ -278,11 +268,11 @@ Los cinco jobs tienen que figurar con `success`.
 | --- | --- |
 | `main` | Solo entregas, con tag. Cada integración despliega a producción |
 | `develop` | Integración y rama por defecto |
-| `feature/`, `fix/`, `test/`, `docs/`, `chore/` | Trabajo de un issue. Salen de `develop` |
+| `feature/`, `fix/`, `test/`, `docs/`, `chore/`, `ci/` | Trabajo de un issue. Salen de `develop` |
 
 Ramas apiladas: si un issue depende de un PR abierto, su rama nace de la rama de ese PR, con un solo nivel, y se actualiza con `develop` cuando ese PR se integra. Nunca se usa `rebase`.
 
-Los mensajes de commit siguen el formato `tipo(modulo): descripción`, con los tipos `feat`, `fix`, `test`, `refactor`, `docs` y `chore`.
+Los mensajes de commit siguen el formato `tipo(modulo): descripción`, con los tipos `feat`, `fix`, `test`, `refactor`, `docs`, `chore` y `ci`.
 
 ### 5.2 Pull requests
 
@@ -338,18 +328,22 @@ curl.exe -i https://reservas-zacarias-guerra.onrender.com/api/health
 | `/` da 200 y `/api/health` da 500 con `ERROR_INTERNO` | La aplicación está en línea, pero no llega a la base (sección 7) |
 | `/` no responde | El servicio está despertando o falló al arrancar (sección 7) |
 
-Esto confirma que el sistema funciona, pero no qué versión está en línea. Para eso, en el servicio de Render:
+Esto confirma que el sistema funciona, pero no qué versión está en línea. Render ejecuta la imagen `latest`, así que la versión se comprueba en tres pasos:
 
-- **Events** lista cada deploy y su commit.
-- **Logs** muestra los registros.
+1. Obtener el commit de `main` y la ejecución del CI de ese commit:
 
-Se comprueba: el commit del último evento *Deploy live* es igual al de `main`.
+   ```powershell
+   git ls-remote origin refs/heads/main
+   gh run list --repo Mattmnz/reservas-zacarias-guerra --branch main --limit 1 --json databaseId,headSha,conclusion
+   ```
 
-```powershell
-git ls-remote origin refs/heads/main
-```
+   Se comprueba: `headSha` es igual al commit de `main`, y esa ejecución tiene `Publicar imagen` y `Despliegue` en `success` (sección 4.3).
+2. Abrir la [página del paquete](https://github.com/Mattmnz/reservas-zacarias-guerra/pkgs/container/reservas-zacarias-guerra). Se comprueba: figura la etiqueta `sha-<commit>`, con los 7 primeros caracteres de ese commit.
+3. En el servicio de Render, abrir **Events**. Se comprueba: el último evento *Deploy live* es posterior a esa ejecución, y `/api/health` responde como en la tabla de arriba.
 
-Esta comprobación vale mientras Render construya desde `main` (sección 3.1).
+Esto muestra qué imagen se publicó y que hubo un despliegue posterior, pero no lee directamente la imagen en línea.
+
+Los registros del servicio están en **Logs**.
 
 ### 6.2 Despertar el servicio y la base antes de una demo
 
@@ -372,9 +366,11 @@ Docker Compose es el respaldo de la demo si producción no está disponible (`RE
 1. En Render: *Events* → el último deploy bueno → **Rollback** → **Rollback to this deploy**. Reutiliza la imagen anterior sin compilar.
 2. La corrección entra por el flujo normal (rama → `develop` → `main`), y el deploy hook despliega la versión corregida.
 
-Cada merge en `main` deja además en GHCR una imagen con la etiqueta `sha-<commit>`. Si hiciera falta, y una vez que el servicio ejecute la imagen de GHCR (sección 3.1), puede apuntar a esa etiqueta en lugar de `latest`.
+Después de un rollback, `latest` sigue siendo la versión con el problema: otro despliegue antes de la corrección la volvería a poner en línea.
 
-Se comprueba con la sección 6.1. Hasta que entre la corrección, lo que está en línea no coincide con `main`: el commit se compara con el del deploy elegido.
+Cada merge en `main` deja además en GHCR una imagen con la etiqueta `sha-<commit>`. Si hiciera falta, el servicio puede apuntar a esa etiqueta en lugar de `latest`. En ese caso, hay que devolverlo a `latest` cuando entre la corrección: si no, el deploy hook seguiría desplegando la etiqueta fijada.
+
+Se comprueba con la tabla de la sección 6.1. Hasta que entre la corrección, lo que está en línea no coincide con `main`, así que los tres pasos de versión de esa sección no aplican.
 
 **Límites:**
 
@@ -401,10 +397,10 @@ Se comprueba con la sección 6.1. Hasta que entre la corrección, lo que está e
 | El script falla al usar otro nombre de usuario | `zg_app` está fijo en las líneas `ALTER ROLE` | Usar `zg_app` |
 | Repetir el seed no cambia la contraseña del administrador | El seed no modifica usuarios que ya existen | Es el comportamiento esperado: el seed no sirve para cambiarla |
 | Job `Despliegue` con `Falta el secreto RENDER_DEPLOY_HOOK` | El secreto no existe en el repositorio | Crearlo (sección 4.2) y volver a ejecutar el job |
-| Job `Publicar imagen` en rojo y `Despliegue` sin correr | `Despliegue` espera a `Publicar imagen` | Corregir la causa. Mientras Render construya desde `main` (sección 3.1), el despliegue manual desde su panel queda como respaldo |
+| Job `Publicar imagen` en rojo y `Despliegue` sin correr | `Despliegue` espera a `Publicar imagen`. Producción sigue con la imagen `latest` anterior | Revisar el registro del job, corregir la causa y volver a ejecutarlo |
 | `Despliegue` en verde y sin versión nueva | El job solo confirma que Render recibió el pedido | Ver el estado del despliegue en Render (sección 6.1) |
 | Ejecución del CI cancelada | Un push posterior a la misma rama la reemplazó | Revisar la ejecución más reciente |
-| `Autoría de commits` en rojo | Un mensaje declara coautoría o generación automática | Corregir el mensaje del commit que nombra el error. Si es el último de la rama del PR: `git commit --amend` y `git push --force-with-lease` |
+| `Autoría de commits` en rojo | Un mensaje declara coautoría o generación automática | No reescribir la rama publicada. Crear una rama nueva desde `develop`, traer cada commit propio de la rama con `git cherry-pick -e`, corregir el mensaje que nombra el error, abrir un PR nuevo y cerrar el anterior |
 | Compose rechaza una contraseña | No cumple la política de SQL Server: mínimo 8 caracteres con 3 de estos 4: mayúsculas, minúsculas, dígitos y símbolos | Cambiar `MSSQL_SA_PASSWORD` o `DB_PASSWORD`. Si cambia `DB_PASSWORD`, actualizarla también en el SQL Server local (`README.md`) |
 | Compose interpreta mal una contraseña con `$` | Toma `$` como variable | Ponerla entre comillas simples en `.env` |
 | La API de Compose y `npm run dev` chocan | Las dos usan el puerto 3000 | No correrlas a la vez. SSMS llega al contenedor en `localhost,14330` |
