@@ -198,7 +198,7 @@ Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y l
 ## Control de versiones
 
 - `main` contiene solo versiones entregadas y es lo que está en producción; `develop` integra el trabajo terminado.
-- Cada tarea es un issue y se desarrolla en su propia rama (`feature/…`, `fix/…`, `docs/…`, `chore/…`). Nadie trabaja directo sobre `main` ni `develop`.
+- Cada tarea es un issue y se desarrolla en su propia rama (`feature/…`, `fix/…`, `docs/…`, `chore/…`, `ci/…`, `test/…`). Nadie trabaja directo sobre `main` ni `develop`.
 - Todo cambio entra por pull request, con la plantilla del repositorio (qué cambia, requisitos, cómo se probó y pendientes) y la aprobación de otro integrante.
 - Las reglas de protección de `develop` y `main` exigen pull request y checks en verde, e impiden el borrado de las ramas y el force-push.
 - El plan del sprint final y sus decisiones están en el issue fijado #35.
