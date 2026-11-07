@@ -16,7 +16,7 @@ Como el Capítulo I es el mismo en E1 y E2, se cita una sola vez como `E1 Cap. I
 
 **Fuentes de las justificaciones:** §1 de la guía principal (decisiones cerradas del dominio), el contrato técnico del equipo, que se versionará como `docs/contrato.md` (#36); #31 (redistribución de tareas) y #35 (plan del sprint final, con sus comentarios).
 
-**Corte de la evidencia:** `develop` en el commit `fa52647` (merge del PR #73), al 05/11/2026. Ese día `npm test` da 677 pruebas, 677 en verde.
+**Corte de la evidencia:** `develop` en el commit `b8bc62e` (merge del PR #87), al 06/11/2026. Ese día `npm test` da 710 pruebas, 710 en verde.
 
 **Cómo se mantiene:**
 - Cuando un PR se integra a `develop`, sus filas pasan de `pendiente (#N)` a `cumplido` o `modificado`, con la evidencia nueva, y se actualiza el corte.
@@ -30,7 +30,7 @@ Como el Capítulo I es el mismo en E1 y E2, se cita una sola vez como `E1 Cap. I
 | --- | --- |
 | `cumplido` | Está en `develop` tal como se comprometió. Cita evidencia: archivo, endpoint, prueba o PR integrado |
 | `modificado` | Está en `develop`, pero distinto de lo comprometido. Cita la evidencia y la justificación (Guía §1, contrato técnico, #31 o #35) |
-| `omitido` | Se recortó según el orden de recorte de #35. Hoy no hay ninguno (sección 7) |
+| `omitido` | Se recortó según el orden de recorte de #35. Ninguna fila queda en este estado: los recortes aplicados no eran filas de la matriz (sección 7) |
 | `pendiente (#N)` | Todavía no está en `develop`; lo resuelve el issue #N. Es un estado transitorio |
 
 - Si un compromiso tiene partes con estados o evidencias distintas, se divide en sub-filas (`.a`, `.b`, …). Si no, va en una sola fila.
@@ -71,15 +71,15 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | RF07 | El cliente ve el historial de sus reservas | E1 Cap. I | `GET /api/reservas/mias`, pruebas de "listarMias", PR #63; `public/cliente/historial.html`, `public/js/paginas/historial.js`, PR #70 | cumplido | |
 | RF08.a | El administrador registra y edita canchas | E1 Cap. I | `POST /api/canchas`, `PUT /api/canchas/:id`, `PATCH /api/canchas/:id/alta`, `PUT /api/tipos-cancha/:id/precio`; `canchas.service.test.js`; `docs/http/canchas.http`; PR #34 | cumplido | |
 | RF08.b | Baja lógica con alerta y confirmación ("proceder de igual forma") si hay reservas activas | E1 Cap. I | `PATCH /api/canchas/:id/baja`, `canchas.service.darDeBaja`; pruebas "con reservas y … → 409 CANCHA_CON_RESERVAS con la cantidad, sin cancelar ni auditar" y "con confirmar: true cancela con la transacción y audita la cifra que devuelve cancelar"; `docs/http/canchas.http`; PR #66 | cumplido | La alerta cuenta las reservas `PAGADA`/`CONFIRMADA` futuras y en curso; con confirmación se cancelan con reembolso del 100 % (#35, comentario del 05/11). La alerta en pantalla está en RF08.c |
-| RF08.c | Pantallas de canchas | E1 Cap. I | — | pendiente (#41) | |
+| RF08.c | Pantallas de canchas | E1 Cap. I | `public/admin/canchas.html`, `public/js/paginas/canchas.js`, `public/js/canchas.js` y `canchas.test.js`; PR #80; en producción con el PR #83 | cumplido | Baja en dos pasos: la segunda confirmación muestra la cantidad que informa el 409. El precio por tipo no tiene pantalla (PR #80) |
 | RF09.a | El administrador define los horarios de cada cancha | E1 Cap. I | `GET` y `PUT /api/canchas/:id/horarios`; `horarios.service.test.js`, `horarios.controller.test.js`; `docs/http/horarios.http`; PR #52 | cumplido | Horario semanal por día; reemplazarlo no modifica las reservas ya hechas (#35, comentario de #14) |
-| RF09.b | Pantalla de horarios | E1 Cap. I | — | pendiente (#41) | |
+| RF09.b | Pantalla de horarios | E1 Cap. I | `public/admin/horario.html`, `public/js/paginas/horario.js`, `public/js/horarios.js` y `horarios.test.js`; PR #80; en producción con el PR #83 | cumplido | La confirmación lista solo los días que cambian |
 | RF10.a | El administrador ve todas las reservas, con filtros por fecha, cancha o estado (API) | E1 Cap. I | `GET /api/reservas` con `requerirRol(ROLES.ADMIN)` y filtros `desde`, `hasta`, `canchaId` y `estado`; pruebas de "listar (admin)"; `docs/http/reservas.http`; PR #63 | cumplido | |
-| RF10.b | Pantalla de reservas del complejo | E1 Cap. I | — | pendiente (#42) | |
+| RF10.b | Pantalla de reservas del complejo | E1 Cap. I | `public/admin/reservas.html`, `public/js/paginas/reservas.js`, `public/js/reservas.js` y `reservas.test.js`; PR #81; en producción con el PR #83 | cumplido | Filtros de fecha, cancha y estado. Sin query, la agenda arranca en hoy |
 | RF11.a | El administrador confirma una reserva (API) | E1 Cap. I | `PATCH /api/reservas/:id/confirmar` con `requerirRol(ROLES.ADMIN)`; pruebas de "confirmar" en `reservas.service.test.js`; `docs/http/reservas.http`; PR #57 | cumplido | Solo desde `PAGADA` y antes del inicio (Guía §1, Confirmar) |
-| RF11.c | Pantalla para confirmar una reserva | E1 Cap. I | — | pendiente (#42) | |
+| RF11.c | Pantalla para confirmar una reserva | E1 Cap. I | Botón Confirmar en `public/admin/reservas.html` (`puedeConfirmar` en `public/js/reservas.js`, con pruebas); PR #81 | cumplido | El predicado solo decide si se ofrece el botón: la regla la aplica la API |
 | RF11.b | El administrador cancela manualmente una reserva (API) | E1 Cap. I | `POST /api/reservas/:id/cancelar`; prueba "el admin cancela una reserva ajena: audita con su id y notifica al dueño"; PR #64 | cumplido | Misma regla de penalización que el cliente (Guía §1, Cancelación) |
-| RF11.d | Pantalla para cancelar una reserva como administrador | E1 Cap. I | — | pendiente (#42) | |
+| RF11.d | Pantalla para cancelar una reserva como administrador | E1 Cap. I | Botón Cancelar en `public/admin/reservas.html`, con la vista previa de `GET /api/reservas/:id/cancelacion` y motivo opcional (`public/js/paginas/reservas.js`); PR #81 | cumplido | La pantalla muestra los montos que devuelve la API y no los calcula |
 | RF12.a | Notificar al cliente: al crear la reserva | E1 Cap. I | `notificaciones.service.crear` llamado en la transacción de `reservas.service.crear` (PR #53); `GET /api/notificaciones` y `PATCH /api/notificaciones/:id/leida` (PR #33) | cumplido | Las notificaciones se guardan en una tabla y no se envían correos (Guía §1, Notificaciones) |
 | RF12.b | Notificar al cliente: al confirmar, registrar asistencia y marcar no-show | E1 Cap. I | `notificaciones.service.crear` en `reservas.service` (`aplicarTransicion` y el barrido de no-show); pruebas "audita con el admin y notifica al cliente dentro de la transacción" y "audita como sistema y notifica a cada cliente, sin reembolso"; PR #57 | cumplido | |
 | RF12.d | Notificar al cliente: al cancelar | E1 Cap. I | `notificaciones.service.crear` en la transacción de `reservas.service.cancelar`; prueba "audita con el motivo recortado y notifica al cliente en la misma transacción"; PR #64 | cumplido | |
@@ -90,9 +90,9 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | RF13.c | Auditar los cambios de cada cancha: creación, edición, alta y horario | E1 Cap. I | `canchas.service` (`CREAR`, `EDITAR`, `ALTA`), PR #34; `horarios.service` (`CAMBIAR_HORARIO`), PR #52 | cumplido | `CAMBIAR_HORARIO` se agregó en #35 (comentario de #14) |
 | RF13.d | Auditar los cambios de cada cancha: baja | E1 Cap. I | `auditoria.service.registrar` con `BAJA` en `canchas.service.darDeBaja`; prueba "sin reservas: desactiva primero, cuenta con la transacción y audita BAJA"; PR #66 | cumplido | |
 | RF13.e | Consultar la auditoría (API) | E1 Cap. I | `GET /api/auditoria` (ADMIN), `auditoria.service.test.js`, PR #33 | cumplido | El recorte de la vista en el frontend no se aplicó: ver RF13.g y la sección 7 |
-| RF13.g | Pantalla de auditoría | E1 Cap. I | `public/admin/auditoria.html`, `public/js/paginas/auditoria.js`, `public/js/auditoria.js` y `auditoria.test.js`; PR #73 | cumplido | La API no pagina (#35, decisiones de #19). Observación de #33: `?entidadId` sin `entidad` mezcla registros de entidades distintas con el mismo id y la API no responde 400; la pantalla no lo impide ("Todas" más un id), aunque cada tarjeta nombra su entidad. Ver la sección 7 |
+| RF13.g | Pantalla de auditoría | E1 Cap. I | `public/admin/auditoria.html`, `public/js/paginas/auditoria.js`, `public/js/auditoria.js` y `auditoria.test.js`; PR #73 | cumplido | La API no pagina (#35, decisiones de #19). Observación de #33: `?entidadId` sin `entidad` mezcla registros de entidades distintas con el mismo id y la API no responde 400; la pantalla no lo impide ("Todas" más un id). No se implementa, porque cada tarjeta nombra su entidad (recorte 2, sección 7) |
 | RF14.a | Solo el rol Administrador accede a la administración (API) | E1 Cap. I | `src/middlewares/requerirRol.js` y `requerirRol.test.js`; rutas de administración con `requerirRol(ROLES.ADMIN)`; `autenticar` lee el rol de la base (`auth.service.usuarioDelToken`); PR #32 | cumplido | |
-| RF14.b | Menú y acceso por rol en el frontend | E1 Cap. I | `MENUS` y `exigirRol` en `public/js/sesion.js`, que lee el rol de `GET /api/auth/yo`; pruebas "con el rol correcto arma solo el menú de ese rol y muestra la página" y "con otro rol va al inicio del rol real y no muestra la página"; PR #65 | cumplido | Las opciones Canchas y Reservas del menú dan 404 hasta que se integren #41 y #42 |
+| RF14.b | Menú y acceso por rol en el frontend | E1 Cap. I | `MENUS` y `exigirRol` en `public/js/sesion.js`, que lee el rol de `GET /api/auth/yo`; pruebas "con el rol correcto arma solo el menú de ese rol y muestra la página" y "con otro rol va al inicio del rol real y no muestra la página"; PR #65 | cumplido | |
 | RF15.a | Iniciar sesión con credenciales (API) | E1 Cap. I | `POST /api/auth/login`, `GET /api/auth/yo`; `docs/http/auth.http`; PR #32 | cumplido | |
 | RF15.b | Pantalla de inicio de sesión | E1 Cap. I | `public/login.html`, `public/js/paginas/login.js`; PR #65 y #69 | cumplido | Formulario por `POST` y botón deshabilitado hasta que carga el módulo, para que la contraseña no viaje en la URL (PR #69) |
 | RF16 | Cerrar sesión desde el menú principal del rol | E1 Cap. I | `cerrarSesion` en `public/js/sesion.js`, botón en el menú de cada rol; prueba "cerrarSesion borra todo y va al login"; PR #65 | cumplido | Con JWT el cierre de sesión consiste en que el frontend descarta el token (contrato técnico, Autenticación; #35 dec. 3) |
@@ -103,16 +103,16 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Justificación / nota |
 | --- | --- | --- | --- | --- | --- |
-| RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | — | pendiente (#21) | La prueba con personas externas no tiene issue (sección 5) |
+  | RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | `docs/guion-demo.md`: recorrido completo por las pantallas y registro de la corrida 1 contra producción (06/11/2026), sin errores; PR #74 y #88 | cumplido | Sin prueba con personas externas (recorte 3, sección 7) |
 | RNF02 | Contraseñas guardadas con hash | E1 Cap. I | `auth.service.registrar` usa `bcrypt.hash`; columna `Usuario.PasswordHash` (`001_esquema.sql`); PR #32 | cumplido | |
 | RNF03.a | Acceso restringido según el rol (API) | E1 Cap. I | Igual que RF14.a; `autenticar` rechaza a los usuarios inactivos | cumplido | |
 | RNF03.b | Acceso restringido según el rol (frontend) | E1 Cap. I | Igual que RF14.b | cumplido | |
 | RNF04 | Disponibilidad en menos de 3 s bajo uso normal | E1 Cap. I | `scripts/medir-disponibilidad.js` (PR #61) contra producción (`https://reservas-zacarias-guerra.onrender.com`, `main` en `fe9cf37`), 05/11/2026 23:00: 75 consultas, 0 con error; mínimo 353 ms, promedio 369 ms, mediana 363 ms, p95 395 ms, máximo 544 ms | cumplido | Diseño sin N+1, con tres consultas en total (PR #58). El arranque en frío de Render y Azure SQL queda fuera del criterio y se informa aparte (803 ms en esta corrida, con el servicio ya despierto) |
 | RNF05.a | Frontend responsive: pantallas integradas | E1 Cap. I | `public/css/estilos.css` (una columna de base, dos desde 48rem; áreas táctiles de 44 px); revisión visual declarada en los PR #65, #68 y #70 a #73 | cumplido | Las pantallas de #40 se probaron también en un celular real (PR #65); las de #43, solo con emulación a 360 px (PR #68). Los PR #70 a #73 declaran revisión a 320 o 360 px y no mencionan un celular real |
-| RNF05.b | Frontend responsive: pantallas de canchas, horarios y reservas | E1 Cap. I | — | pendiente (#41, #42) | |
+| RNF05.b | Frontend responsive: pantallas de canchas, horarios y reservas | E1 Cap. I | `public/css/estilos.css`; sin desborde horizontal a 320, 360 y 1280 px, declarado en los PR #80 y #81 | cumplido | Revisión con Chromium y API simulada; los PR no mencionan un celular real |
 | RNF06.a | Backend organizado en capas separadas | E1 Cap. I | `src/modules/<modulo>/` con `routes`, `controller`, `service` y `repository`; `src/routes.js` | cumplido | |
 | RNF06.b | Frontend organizado en capas separadas | E1 Cap. I | `public/js/api.js` (llamadas a la API), `public/js/sesion.js` (token, acceso por rol y menú) y un script por página en `public/js/paginas/`; PR #65 | cumplido | `js/api.js`, `js/sesion.js` y un script por página (#35 dec. 1) |
-| RNF07 | Desplegado en un entorno público para la defensa | E1 Cap. I | https://reservas-zacarias-guerra.onrender.com; job `Despliegue` en `.github/workflows/ci.yml`; `db/produccion/usuario-app.sql`; PR #67 y #75; comentario de cierre de #39 | cumplido | Render y Azure SQL Database (#35 dec. 4 y 5). Producción llega hasta el PR #70 (`main` en `fe9cf37`): #71 a #73 entran con el siguiente merge a `main` |
+| RNF07 | Desplegado en un entorno público para la defensa | E1 Cap. I | https://reservas-zacarias-guerra.onrender.com; job `Despliegue` en `.github/workflows/ci.yml`; `db/produccion/usuario-app.sql`; PR #67, #75, #83 y #86; comentario de cierre de #39 | cumplido | Render y Azure SQL Database (#35 dec. 4 y 5). `main` está en `81bca1b` (PR #86), con todas las pantallas (PR #83) |
 | RNF08 | Agregar canchas o modalidades sin rediseño | E1 Cap. I | Tabla `TipoCancha` y `Cancha.TipoCanchaId` (`001_esquema.sql`, PR #30); `GET /api/tipos-cancha` y alta de canchas (PR #34) | cumplido | La disponibilidad hace tres consultas en total, sin N+1 (`disponibilidad.service.consultar`, PR #58) |
 | RNF09.a | Dos reservas simultáneas no ocupan el mismo horario | E1 Cap. I | Índice `UX_Reserva_SlotActivo` (`002_indices.sql`, PR #30); `SELECT … WITH (UPDLOCK, HOLDLOCK)` en `reservas.repository.js` y traducción de 2601/2627 a `HORARIO_OCUPADO` en `reservas.service.js`; pruebas de "crear: transacción"; PR #53 | cumplido | |
 | RNF09.b | Prueba de 10 solicitudes simultáneas | E1 Cap. I | `scripts/concurrencia-reservas.js`: 10 `POST /api/reservas` simultáneos, 1 × 201 y 9 × 409 `HORARIO_OCUPADO` en cada ronda, con verificación en la base; PR #56 | cumplido | Requiere base local: no corre en `npm test` ni en CI |
@@ -137,19 +137,19 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | CU-GEN-08.a | Gestionar usuarios (API) | E1 Cap. I | Ver RF17.a | cumplido | |
 | CU-GEN-08.b | Gestionar usuarios (pantalla) | E1 Cap. I | Ver RF17.b | cumplido | |
 | CU-GEN-09.a | Cancelar reserva (cliente y administrador), extiende Ver historial: API y pantalla del cliente | E1 Cap. I | Ver RF04 y RF11.b | cumplido | |
-| CU-GEN-09.b | Cancelar reserva: pantalla del administrador | E1 Cap. I | — | pendiente (#42) | |
+| CU-GEN-09.b | Cancelar reserva: pantalla del administrador | E1 Cap. I | Ver RF11.d | cumplido | |
 | CU-GEN-10.a | Confirmar reserva (API) | E1 Cap. I | `PATCH /api/reservas/:id/confirmar`; PR #57 (ver RF11.a) | cumplido | |
-| CU-GEN-10.b | Confirmar reserva (pantalla) | E1 Cap. I | — | pendiente (#42) | |
+| CU-GEN-10.b | Confirmar reserva (pantalla) | E1 Cap. I | Ver RF11.c | cumplido | |
 | CU-GEN-11.a | Notificar cliente: al crear | E1 Cap. I | Ver RF12.a | cumplido | En el diagrama lo incluyen Cancelar y Confirmar |
 | CU-GEN-11.b | Notificar cliente: al confirmar | E1 Cap. I | Ver RF12.b | cumplido | |
 | CU-GEN-11.c | Notificar cliente: al cancelar, y su pantalla | E1 Cap. I | Ver RF12.d y RF12.c | cumplido | |
 | CU-GEN-12.a | Gestionar canchas: registrar, editar y alta | E1 Cap. I | Ver RF08.a | cumplido | |
 | CU-GEN-12.b | Gestionar canchas: baja | E1 Cap. I | Ver RF08.b | cumplido | |
-| CU-GEN-12.c | Gestionar canchas: pantallas | E1 Cap. I | — | pendiente (#41) | |
+| CU-GEN-12.c | Gestionar canchas: pantallas | E1 Cap. I | Ver RF08.c | cumplido | |
 | CU-GEN-13.a | Definir horarios (API) | E1 Cap. I | Ver RF09.a | cumplido | |
-| CU-GEN-13.b | Definir horarios (pantalla) | E1 Cap. I | — | pendiente (#41) | |
+| CU-GEN-13.b | Definir horarios (pantalla) | E1 Cap. I | Ver RF09.b | cumplido | |
 | CU-GEN-14.a | Ver reservas del complejo (API) | E1 Cap. I | Ver RF10.a | cumplido | |
-| CU-GEN-14.b | Ver reservas del complejo (pantalla) | E1 Cap. I | — | pendiente (#42) | |
+| CU-GEN-14.b | Ver reservas del complejo (pantalla) | E1 Cap. I | Ver RF10.b | cumplido | |
 
 #### CU-01: Reservar cancha
 
@@ -181,7 +181,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | CU-02.FB7 | Incluye Notificar cliente | E1 Cap. I | Ver RF12.d | cumplido | |
 | CU-02.A1 | No-show automático con el 100 % de penalización | E1 Cap. I | `reservas.service.barrerNoShow` al inicio de disponibilidad, asistencia, cancelar y las consultas de reservas; pruebas de "barrerNoShow"; PR #57, #58, #63 y #64 | cumplido | Barrido perezoso sin tareas programadas (Guía §1, No-show) |
 | CU-02.A2.a | El administrador cancela en nombre del cliente, con su usuario en la auditoría (API) | E1 Cap. I | Ver RF11.b | cumplido | |
-| CU-02.A2.b | El administrador cancela en nombre del cliente (pantalla) | E1 Cap. I | — | pendiente (#42) | |
+| CU-02.A2.b | El administrador cancela en nombre del cliente (pantalla) | E1 Cap. I | Ver RF11.d | cumplido | |
 | CU-02.POST | Estado final, horario liberado y auditoría con motivo, monto penalizado y responsable | E1 Cap. I | `reservas.service.cancelar`: estado `CANCELADA`, `Activa = 0`, `MontoPenalizado` y auditoría `CANCELAR` con el usuario y un motivo con porcentaje y montos; prueba "con el monto máximo de DECIMAL(10,2) y un motivo de 150 caracteres, el motivo auditado cabe en 250"; PR #64 | cumplido | En un no-show (PR #57) quedan el estado final y `MontoPenalizado`, pero la auditoría no tiene responsable ni motivo y el bloque conserva `Activa = 1`; la postcondición describe la cancelación |
 
 #### Casos de uso de negocio
@@ -195,7 +195,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | CU-NEG-2.b | Cancelar y penalizar reserva: cancelación y su penalización (RF04, RF05) | E1 Cap. I | Ver RF04 y RF05.b | cumplido | |
 | CU-NEG-3.a | Gestionar disponibilidad de canchas: canchas y horarios (RF08, RF09) | E1 Cap. I | Ver RF08.a y RF09.a | cumplido | |
 | CU-NEG-3.b | Gestionar disponibilidad de canchas: baja | E1 Cap. I | Ver RF08.b | cumplido | |
-| CU-NEG-3.c | Gestionar disponibilidad de canchas: pantallas | E1 Cap. I | — | pendiente (#41) | |
+| CU-NEG-3.c | Gestionar disponibilidad de canchas: pantallas | E1 Cap. I | Ver RF08.c y RF09.b | cumplido | |
 
 ### 3.4 Modelos UWE
 
@@ -215,10 +215,10 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | MOD-EST.a | Flujo de estados de la reserva (objetivo específico 3) | E1 objetivos e introducción | `ESTADOS` (`src/shared/constantes.js`); `CK_Reserva_Estado`; tabla de transiciones en `src/modules/reservas/reglas.js` con `reglas.test.js`; PR #29 y #30 | modificado | 4.1 | Estados `PAGADA`, `CONFIRMADA`, `COMPLETADA`, `CANCELADA` y `NO_SHOW`; sin "pendiente" (Guía §1, Estados) |
 | MOD-EST.b | Diagrama de estados de la reserva | E1 objetivos | — | pendiente (#49) | 4.1 | El modelo de procesos entregado no lo tiene |
 | MOD-NAV.a | Navegación: nodos N1 a N7 y enlaces E1 a E8 y E10 a E12 de E1 (Login, Registro, Catálogo «menu», Detalle y reserva, Historial, Confirmación, Panel administrador «menu») | E1 Cap. I | Tabla de nodos y rutas de `public/README.md`; `public/login.html`, `public/registro.html`, `public/cliente/`, `public/admin/panel.html`; PR #65, #68 y #70 | cumplido | | Una página por nodo (#35 dec. 1) |
-| MOD-NAV.b | Navegación: nodo N8 Gestionar canchas y enlace E9 | E1 Cap. I | — | pendiente (#41) | | |
+| MOD-NAV.b | Navegación: nodo N8 Gestionar canchas y enlace E9 | E1 Cap. I | `public/admin/canchas.html`; opción Canchas de `MENUS` en `public/js/sesion.js`; PR #80 | cumplido | | Ver RF08.c |
 | MOD-NAV.c | Ampliación del modelo navegacional documentada: 13 nodos y 20 enlaces (N9 a N13 y A1 a A8) | #35 dec. 1 y 2 | `docs/modelos/navegacion.md` (tablas de nodos y enlaces); PR #60 | cumplido | | |
 | MOD-NAV.d | Ampliación integrada: nodos N11, N12 y N13; enlaces A1, A3, A4, A7 y A8 | #35 dec. 1 y 2 | `public/admin/usuarios.html`, PR #72; `public/admin/auditoria.html`, PR #73; `public/cliente/notificaciones.html`, PR #71; A7 y A8 en `public/js/sesion.js`, PR #65 | cumplido | | Ver RF17.b, RF13.g, RF12.c y CU-01.A2 |
-| MOD-NAV.e | Ampliación por integrar: nodos N9 y N10; enlaces A2, A5 y A6 | #35 dec. 1 y 2 | — | pendiente (#41, #42) | | N10 incluye registrar asistencia (#42). Ver RF09.b y RF10.b |
+| MOD-NAV.e | Ampliación integrada: nodos N9 y N10; enlaces A2, A5 y A6 | #35 dec. 1 y 2 | `public/admin/horario.html`, PR #80; `public/admin/reservas.html`, PR #81; A2 en `MENUS` (`public/js/sesion.js`); A5 en `public/js/paginas/canchas.js` y A6 en `public/admin/horario.html`, PR #80 | cumplido | | N10 incluye registrar asistencia (#42). Ver RF09.b y RF10.b |
 | MOD-NAV.f | Diagrama del modelo navegacional | #35 dec. 1 y 2 | — | pendiente (#49) | | Los modelos corregidos van en `docs/modelos/` con fuente y PNG; el formato lo decide el responsable |
 | MOD-PRE-1 | Presentación: catálogo con filtros de fecha y modalidad, estado y precio por cancha | E1 Cap. I | `public/cliente/catalogo.html`, `public/js/paginas/catalogo.js`: filtros de fecha y tipo, tipo y precio por cancha, bloques libres; PR #68 | modificado | Sección 5 | No hay un "estado" por cancha: se muestran sus bloques libres o "Sin horarios libres", porque la disponibilidad se calcula por bloque (Guía §1, Bloques horarios). Los precios del dibujo (C$ 500 y C$ 800) son ilustrativos; los reales salen de `TipoCancha` |
 | MOD-PRE-2.a | Presentación: confirmar reserva con pago simulado | E1 Cap. I | `public/cliente/reserva.html`: aclaración de pago simulado y diálogo "Pagar y reservar"; PR #68 | cumplido | Sección 5 | El aviso de la regla de penalización al confirmar no está en la pantalla ni tiene issue (sección 5) |
@@ -229,7 +229,7 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | MOD-PRO-F1.b | Flujo de reservar: ver los horarios libres de una fecha | E1 Cap. I | Ver RF02.a | cumplido | | |
 | MOD-PRO-F1.c | Flujo de reservar: elegir fecha y volver a los horarios libres si el bloque se ocupó | E1 Cap. I | Filtro de fecha en `public/cliente/catalogo.html`; `public/js/paginas/reserva.js` vuelve a consultar los bloques libres con `HORARIO_OCUPADO`; PR #68 | cumplido | | |
 | MOD-PRO-F2.a | Flujo de baja de cancha: verificar reservas, alerta, "¿proceder de igual forma?", cancelar reservas notificando, actualizar estado y auditar (API) | E1 Cap. I | `canchas.service.darDeBaja` y `reservas.service.cancelarPorBajaDeCancha`, en una transacción; pruebas de "darDeBaja" y "cancelarPorBajaDeCancha"; PR #66 | cumplido | 4.1 | |
-| MOD-PRO-F2.b | Flujo de baja de cancha: alerta y confirmación en pantalla | E1 Cap. I | — | pendiente (#41) | | |
+| MOD-PRO-F2.b | Flujo de baja de cancha: alerta y confirmación en pantalla | E1 Cap. I | Segunda confirmación ante `CANCHA_CON_RESERVAS` en `public/js/paginas/canchas.js`, con los textos de `public/js/canchas.js` y `canchas.test.js`; PR #80 | cumplido | | La cantidad se lee del mensaje del 409; si el texto cambia, la confirmación sale sin cifra (PR #80) |
 
 ### 3.5 Objetivos y caso de estudio
 
@@ -243,9 +243,9 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | OBJ-5.b | Backend: disponibilidad y no-show | E1 objetivos | PR #57 y #58 | cumplido | |
 | OBJ-5.c | Backend: cancelación, consultas y baja de cancha | E1 objetivos | PR #64, #63 y #66 | cumplido | |
 | OBJ-6.a | Frontend con interfaces diferenciadas por rol: base, cliente, usuarios y auditoría | E1 objetivos | `MENUS` en `public/js/sesion.js`; `public/cliente/` y `public/admin/`; PR #65, #68, #70, #71, #72 y #73 | cumplido | |
-| OBJ-6.b | Frontend por rol: canchas, horarios y reservas del administrador | E1 objetivos | — | pendiente (#41, #42) | |
+| OBJ-6.b | Frontend por rol: canchas, horarios y reservas del administrador | E1 objetivos | Ver RF08.c, RF09.b y RF10.b; PR #80, #81 y #83 | cumplido | |
 | OBJ-7.a | Desplegar en un entorno accesible | E1 objetivos | Ver RNF07 | cumplido | |
-| OBJ-7.b | Documentar el despliegue y el control de versiones | E1 objetivos | — | pendiente (#50) | |
+| OBJ-7.b | Documentar el despliegue y el control de versiones | E1 objetivos | `docs/despliegue.md`; PR #82 (`Closes #50`) | cumplido | El rollback con la imagen de GHCR no está probado (PR #82, Pendientes) |
 | DOM-01 | 7 canchas: 5 de fútbol sala y 2 de fútbol campo | E1 caso de estudio | `scripts/seed.js` (Sala 1–5 y Campo 1–2, tipos `SALA` y `CAMPO`); PR #30 | cumplido | |
 | DOM-02 | Dos roles: cliente y administrador | E1 Cap. I | `CK_Usuario_Rol`; `ROLES` en `src/shared/constantes.js`; PR #30 | cumplido | |
 | DOM-03.a | Penalización del 100 % por no-show | E1 caso de estudio y supuesto | Ver RF05.a | cumplido | |
@@ -263,10 +263,10 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | ARQ-03.c | Capa de presentación con HTML, CSS y JS | E2 Cap. II | `public/`, servido por `express.static` en `src/app.js`; PR #65 | cumplido | Sin framework, en `public/` (#35 dec. 1) |
 | ARQ-04 | Dominio de seis entidades principales (Usuario, Cliente, Administrador, Cancha, Horario, Reserva) | E2 Cap. II | Ocho tablas en `001_esquema.sql`: Usuario, TipoCancha, Cancha, Horario, Reserva, Pago, Auditoria y Notificacion; PR #30 | modificado | Usuario en una sola tabla (Guía §1, Usuarios); TipoCancha, Pago y Notificacion por Guía §1; Auditoria por RF13 (contrato técnico, Esquema) |
 | ARQ-05 | Integridad transaccional ACID sobre una sola base SQL Server (RNF09) | E2 Cap. II | `db.enTransaccion` con `READ COMMITTED` en `reservas.service.crear`; prueba "abre la transacción con READ COMMITTED"; PR #53 | cumplido | |
-| ARQ-06 | Hosting gratuito de un único servicio (Render o Azure App Service) | E2 Cap. II | Ver RNF07; `Dockerfile` y `compose.yaml`, PR #54 | cumplido | Render con Docker y Azure SQL Database (#35 dec. 4 y 5) |
+| ARQ-06 | Hosting gratuito de un único servicio (Render o Azure App Service) | E2 Cap. II | Ver RNF07; `Dockerfile` y `compose.yaml`, PR #54; imagen en GHCR, PR #85 y #82 | cumplido | Render ejecuta la imagen `latest` de GHCR, con Azure SQL Database (#35 dec. 4 y 5, y comentario del 06/11) |
 | ARQ-07.a | Un único repositorio | E2 Cap. II | https://github.com/Mattmnz/reservas-zacarias-guerra | cumplido | |
-| ARQ-07.b | Un solo proceso de despliegue e integración continua | E2 Cap. II | `.github/workflows/ci.yml`: Pruebas, Imagen Docker, Autoría de commits y Despliegue (solo en push a `main`); PR #55 y #67 | cumplido | |
-| ARQ-08 | La lógica de negocio se prueba aislada, simulando la capa de datos | E2 Cap. II | `*.service.test.js` con `mock` de `node:test` sobre los repositorios y `db`; `npm test`: 677 pruebas | cumplido | |
+| ARQ-07.b | Un solo proceso de despliegue e integración continua | E2 Cap. II | `.github/workflows/ci.yml`: Pruebas, Imagen Docker, Autoría de commits, Publicar imagen y Despliegue (estos dos, solo en push a `main`); PR #55, #67 y #85 | cumplido | |
+| ARQ-08 | La lógica de negocio se prueba aislada, simulando la capa de datos | E2 Cap. II | `*.service.test.js` con `mock` de `node:test` sobre los repositorios y `db`; `npm test`: 710 pruebas | cumplido | |
 
 ### 3.7 Decisiones de desarrollo (E3 Cap. III)
 
@@ -286,12 +286,12 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | DES-10.b | Capas por módulo: disponibilidad | E3 §3.2 | `src/modules/disponibilidad/` (routes, controller y service, con sus pruebas); montado en `src/routes.js`; PR #58 | cumplido | No tiene repository propio: lee por los services de canchas, horarios y reservas (DES-11) |
 | DES-11 | Cada capa usa solo la inferior; los módulos se comunican por su servicio, con firmas fijas | E3 §3.2 | `reservas.service` usa `canchasService`, `horariosService`, `auditoriaService` y `notificacionesService`; firmas en el contrato técnico (Funciones entre módulos) | cumplido | Las firmas nuevas se registran en #35 (por ejemplo `obtenerParaActualizar`) |
 | DES-12 | Penalización y transiciones como funciones puras con pruebas de casos límite (24 h exactas) | E3 §3.2 y §3.3 | `src/modules/reservas/reglas.js` y `reglas.test.js`; PR #29 | cumplido | |
-| DES-13.a | `develop` integra y cada tarea tiene su rama | E3 §3.3 | Historial de `develop`: solo merges de PR desde ramas `feature/`, `chore/`, `docs/`, `test/` y `fix/` | cumplido | |
+| DES-13.a | `develop` integra y cada tarea tiene su rama | E3 §3.3 | Historial de `develop`: solo merges de PR desde ramas `feature/`, `chore/`, `docs/`, `test/`, `fix/` y `ci/` (PR #85) | cumplido | |
 | DES-13.b | `main` solo con versiones entregadas | E3 §3.3 | — | pendiente (#23) | Release `v0.3-backend`. El tag ya está en `main` (pre-release, PR #75), pero #23 sigue abierto |
-| DES-14 | Todo cambio entra por PR aprobado por otro integrante | E3 §3.3 | PR #25–#34, #51–#73 y #75: todos con aprobación de alguien distinto del autor. Fuera de los merges, `develop` solo tiene el commit inicial | cumplido | |
-| DES-15 | Rotación fija de revisores | E3 §3.3 | PR #51 (B) y #52 (A) los aprobó C; PR #53 (C) lo aprobó A; PR #54 y #58 (A) los aprobó C; PR #57 (C) lo aprobó A. Desde el corte: PR #56, #59, #60 y #61 (B), #64, #65 y #68 a #70 (C) los aprobó A; PR #55, #62 y #67 (A) y #71 a #73 (C) los aprobó B; PR #63 (B) y #66 y #75 (A) los aprobó C | modificado | Durante la redistribución A y C se revisan entre sí y C revisa a B (#31); después revisa el primero disponible de los otros dos (#35, Revisión) |
+| DES-14 | Todo cambio entra por PR aprobado por otro integrante | E3 §3.3 | PR #25–#34, #51–#75 y #77–#87: todos con aprobación de alguien distinto del autor. Fuera de los merges, `develop` solo tiene el commit inicial | cumplido | |
+| DES-15 | Rotación fija de revisores | E3 §3.3 | PR #51 (B) y #52 (A) los aprobó C; PR #53 (C) lo aprobó A; PR #54 y #58 (A) los aprobó C; PR #57 (C) lo aprobó A. Desde el corte: PR #56, #59, #60 y #61 (B), #64, #65 y #68 a #70 (C) los aprobó A; PR #55, #62 y #67 (A) y #71 a #73 (C) los aprobó B; PR #63 (B) y #66 y #75 (A) los aprobó C. Desde #74: PR #74 y #82 (B) y #80, #81, #83 y #86 (A) los aprobó C; PR #78 y #79 (B) y #87 (C) los aprobó A; PR #77 (C) y #84 y #85 (A) los aprobó B | modificado | Durante la redistribución A y C se revisan entre sí y C revisa a B (#31); después revisa el primero disponible de los otros dos (#35, Revisión) |
 | DES-16 | Ramas principales protegidas contra escritura directa, borrado y reescritura | E3 §3.3 | `gh api repos/Mattmnz/reservas-zacarias-guerra/rules/branches/{develop,main}`: ruleset 24905866 con `pull_request` (1 aprobación, solo merge commit), `non_fast_forward`, `deletion` y `required_status_checks` (Pruebas, Imagen Docker y Autoría de commits) en ambas ramas | cumplido | |
-| DES-17 | Cada tarea es un issue y su PR lo cierra | E3 §3.3 | `Closes #N` en los PR #25–#34, #51–#58, #63–#66, #68 y #70–#73 | cumplido | Los PR que no terminan su issue usan `Refs`: #59 y #60 (#49), #61 (#48), #62 (#37), #67 y #75 (#39), #69 (#40). #39 se cerró con un comentario, no con un PR |
+| DES-17 | Cada tarea es un issue y su PR lo cierra | E3 §3.3 | `Closes #N` en los PR #25–#34, #51–#58, #63–#66, #68, #70–#73, #79–#82 y #87 | cumplido | Los PR que no terminan su issue usan `Refs`: #59, #60 y #78 (#49), #61 (#48), #62 (#37), #67, #75 y #86 (#39), #69 (#40), #74 y #83 (#21), #77 (#47), #84 (#23), #85 (#38). #39 se cerró con un comentario, no con un PR |
 | DES-18 | Doble defensa ante reservas simultáneas: bloqueo de rango e índice único filtrado | E3 §3.3 | Igual que RNF09.a | cumplido | |
 | DES-19 | Base local por integrante con migraciones SQL versionadas | E3 §3.3 | `db/migrations/001_esquema.sql`, `002_indices.sql`; `scripts/migrar.js` (tabla `_Migraciones`); `scripts/seed.js`; PR #30 | cumplido | |
 | DES-20 | Todas las fechas en hora de Nicaragua, calculadas en la aplicación | E3 §3.3 | `src/shared/tiempo.js` (`ahoraNicaragua`, `diaSemana`) y `tiempo.test.js`; PR #27 | cumplido | |
@@ -351,7 +351,6 @@ Estos compromisos no tienen un issue que los resuelva, así que no llevan estado
 | --- | --- | --- |
 | Completar el modelo de presentación | E1 Cap. I; #35 dec. 2 | Solo tiene catálogo y confirmar reserva. #35 valida cada pantalla contra su modelo de presentación, y las demás pantallas no tienen uno. Es la parte de presentación de OBJ-2 |
 | Aviso de la regla de penalización al confirmar la reserva | E1 Cap. I (modelo de presentación); MOD-PRE-2.a | El modelo de presentación lo incluye, pero `public/cliente/reserva.html` y `public/cliente/confirmacion.html` no lo muestran; la regla solo aparece al cancelar, en `public/cliente/historial.html` |
-| Prueba de usabilidad con personas externas | #35, orden de recorte (3) | #35 la nombra como tercer recorte, pero ningún issue la crea. RNF01 queda cubierto por #21 |
 
 ## 6. Enunciados que no son compromisos de implementación
 
@@ -362,22 +361,22 @@ Estos compromisos no tienen un issue que los resuelva, así que no llevan estado
 
 ## 7. Recortes aplicados (#35)
 
-Ninguno. Si se aplica alguno, se registra aquí con su justificación, en el orden de #35:
+Se aplican los recortes 2 y 3 (#35, comentario del 06/11). Ninguno deja una fila en `omitido`: no eran filas de la matriz.
 
 1. Vista de auditoría en el frontend (#47). No se aplicó: #47 se integró (PR #73; RF13.g).
-2. Observación de #33 sobre `?entidadId` sin `entidad`. No está implementada al corte: queda pendiente de decisión antes de la entrega (RF13.g).
-3. Prueba de usabilidad con personas externas.
+2. Observación de #33 sobre `?entidadId` sin `entidad`. **Aplicado:** no se implementa. La pantalla de auditoría nombra la entidad en cada registro, y la mezcla afecta solo a la consulta, no a los datos guardados (RF13.g).
+3. Prueba de usabilidad con personas externas. **Aplicado:** no se hace. RNF01 queda respaldado por `docs/guion-demo.md` y su corrida contra producción del 06/11, que entra con el PR #88 (RNF01).
 
 ## 8. Resumen
 
-Corte: `develop` en `fa52647` (05/11/2026).
+Corte: `develop` en `b8bc62e` (06/11/2026).
 
 | Estado | Filas |
 | --- | --- |
-| cumplido | 154 |
+| cumplido | 172 |
 | modificado | 18 |
 | omitido | 0 |
-| pendiente | 28 |
+| pendiente | 10 |
 | **Total** | **200** |
 
-Issues con filas pendientes: #21, #23, #41, #42, #49 y #50.
+Issues con filas pendientes: #21, #23 y #49.
