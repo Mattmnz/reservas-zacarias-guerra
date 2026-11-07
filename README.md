@@ -30,7 +30,7 @@ Monolito en capas organizado por módulo funcional (rutas, controlador, servicio
 | Frontend | HTML, CSS y JavaScript sin framework, en `public/`: una página por nodo del modelo navegacional |
 | Pruebas | Ejecutor nativo de Node (`node --test`) |
 | Contenedores | Docker (imagen única de la aplicación) y Docker Compose (aplicación más SQL Server) |
-| CI/CD | GitHub Actions; despliegue en Render |
+| CI/CD | GitHub Actions, GitHub Container Registry (GHCR) y Render |
 
 ## Estructura
 
@@ -47,7 +47,7 @@ db/                  migraciones, scripts de producción y documentación de la 
 scripts/             migración, seed, preparación de la base en Compose, prueba de concurrencia
                      y medición de RNF04
 docs/                trazabilidad, modelos, guion de demo, peticiones .http e integrantes
-.github/             workflow de CI/CD y plantilla de pull request
+.github/             workflow de CI/CD, prueba de humo y plantilla de pull request
 Dockerfile, compose.yaml
 ```
 
@@ -141,14 +141,17 @@ curl http://localhost:3000/api/health
 
 ## Integración y despliegue continuos
 
-Cada pull request y cada push a `develop` y `main` ejecutan el workflow `.github/workflows/ci.yml` en GitHub Actions. Las reglas de protección de `develop` y `main` exigen que los tres primeros jobs pasen antes del merge.
+Cada pull request y cada push a `develop` y `main` ejecutan el workflow `.github/workflows/ci.yml` en GitHub Actions. Las reglas de protección de `develop` y `main` exigen que `Pruebas`, `Imagen Docker` y `Autoría de commits` pasen antes del merge.
 
 | Job | Qué comprueba o hace |
 | --- | --- |
 | Pruebas | `npm ci` y `npm test` con Node 24 y variables de entorno ficticias. Las pruebas no usan base de datos |
-| Imagen Docker | Que `compose.yaml` sea válido y que la imagen se construya |
+| Imagen Docker | Que `compose.yaml` sea válido, que la imagen se construya y que el contenedor arranque y responda: prueba de humo sin base de datos (`.github/scripts/prueba-humo.sh`) |
 | Autoría de commits | Que ningún mensaje de commit declare coautoría o generación automática |
-| Despliegue | Solo en un push a `main` y con los otros tres en verde: dispara el despliegue en Render. En los pull requests aparece omitido y no es un check obligatorio |
+| Publicar imagen | Solo en un push a `main` y con los tres anteriores en verde: construye la imagen, le corre la prueba de humo y sube esa misma imagen a GHCR con las etiquetas `latest` y `sha-<commit>` |
+| Despliegue | Después de `Publicar imagen`: dispara el deploy hook de Render, que descarga la imagen `latest` |
+
+`Publicar imagen` y `Despliegue` aparecen omitidos en los pull requests y no son checks obligatorios.
 
 El resultado aparece al pie de cada pull request y en la pestaña *Actions*.
 
@@ -156,7 +159,8 @@ El resultado aparece al pie de cada pull request y en la pestaña *Actions*.
 
 | Pieza | Servicio |
 | --- | --- |
-| Aplicación | Render, servicio web Docker del plan gratuito: construye la imagen del `Dockerfile` desde `main` |
+| Imagen | GHCR: `ghcr.io/mattmnz/reservas-zacarias-guerra`, pública, con `latest` y una etiqueta `sha-<commit>` por cada merge en `main` |
+| Aplicación | Render, servicio web del plan gratuito que ejecuta la imagen `latest` de GHCR |
 | Base de datos | Azure SQL Database con la oferta gratuita (serverless, con pausa automática) |
 | Usuario de la aplicación | Usuario contenido con permisos solo de lectura y escritura de filas (`db/produccion/usuario-app.sql`) |
 
@@ -164,12 +168,13 @@ El resultado aparece al pie de cada pull request y en la pestaña *Actions*.
 
 1. El cambio entra en `develop` por pull request, con la aprobación de otro integrante y los checks en verde.
 2. Un pull request de `develop` a `main`, aprobado y mergeado con merge commit (nunca *squash* ni *rebase*: `main` y `develop` divergirían).
-3. El job `Despliegue` dispara el deploy hook de Render, guardado como secreto del repositorio, y Render construye y publica la imagen.
-4. La verificación es manual: el job en verde en *Actions*, el deploy en *Live* con el hash del merge en *Events* de Render y `GET /api/health` con `{"data":{"db":"ok"}}`.
+3. El job `Publicar imagen` construye la imagen, le corre la prueba de humo y la sube a GHCR. La imagen que se despliega es la misma que pasó la prueba.
+4. El job `Despliegue` dispara el deploy hook de Render, guardado como secreto del repositorio, y Render descarga la imagen `latest`.
+5. La verificación es manual: los jobs en verde en *Actions*, el deploy en *Live* en *Events* de Render y `GET /api/health` con `{"data":{"db":"ok"}}`.
 
 Las migraciones nuevas se aplican a mano contra Azure antes del merge a `main`, como indica `db/README.md`: la imagen no las ejecuta al arrancar.
 
-Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y la corrección entra después por el mismo flujo. El rollback no deshace migraciones. El procedimiento completo está en `docs/despliegue.md`.
+Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y la corrección entra después por el mismo flujo. Cada versión queda además en GHCR con su etiqueta `sha-<commit>`: si hiciera falta, el servicio de Render puede apuntar a esa etiqueta en lugar de `latest`. El rollback no deshace migraciones. El procedimiento completo está en `docs/despliegue.md`.
 
 ### Plan gratuito
 
