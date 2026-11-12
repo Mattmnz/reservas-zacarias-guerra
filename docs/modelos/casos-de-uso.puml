@@ -1,0 +1,63 @@
+@startuml casos-de-uso
+' Diagrama general de casos de uso (E1 Cap. I) con las correcciones de la sección 4.1 de docs/trazabilidad.md
+skinparam dpi 220
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F5F8FC
+  BorderColor #3B5B7F
+}
+skinparam actorBorderColor #3B5B7F
+skinparam ArrowColor #3B5B7F
+left to right direction
+
+actor Cliente
+actor Administrador
+
+rectangle "Sistema de Reserva de canchas Zacarías Guerra" {
+  usecase "Registrar usuario" as RegUsuario
+  usecase "Iniciar sesión" as Login
+  usecase "Cerrar sesión" as Logout
+  usecase "Consultar disponibilidad" as Disponibilidad
+  usecase "Reservar cancha" as Reservar
+  usecase "Simular pago" as Pago
+  usecase "Ver historial reservas" as Historial
+  usecase "Cancelar reserva" as Cancelar
+  usecase "Notificar cliente" as Notificar
+  usecase "Confirmar reserva" as Confirmar
+  usecase "Gestionar canchas" as Canchas
+  usecase "Definir horarios" as Horarios
+  usecase "Ver reservas del complejo" as ReservasComplejo
+  usecase "Gestionar usuarios" as Usuarios
+}
+
+Cliente -- Disponibilidad
+Cliente -- Reservar
+Cliente -- Pago
+Cliente -- Historial
+Cliente -- RegUsuario
+Cliente -- Cancelar
+Cliente -- Login
+Cliente -- Logout
+
+Login --- Administrador
+Logout --- Administrador
+Usuarios --- Administrador
+Cancelar --- Administrador
+Confirmar --- Administrador
+Canchas --- Administrador
+Horarios --- Administrador
+ReservasComplejo --- Administrador
+
+Disponibilidad <. Reservar : <<include>>
+Reservar .> Pago : <<include>>
+Cancelar .> Historial : <<extend>>
+Cancelar ..> Notificar : <<include>>
+Confirmar ..> Notificar : <<include>>
+
+legend right
+  <<include>>: obligatorio
+  <<extend>>: opcional
+endlegend
+@enduml
