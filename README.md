@@ -187,7 +187,7 @@ Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y l
 | Documento | Contenido |
 | --- | --- |
 | `docs/trazabilidad.md` | Matriz de trazabilidad de requisitos y modelos UWE |
-| `docs/modelos/` | Modelo navegacional |
+| `docs/modelos/` | Modelos UWE corregidos: casos de uso, contenido, estados de la reserva, flujo de baja de cancha y navegacional |
 | `docs/guion-demo.md` | Guion de demo y prueba integral contra producción |
 | `docs/despliegue.md` | Despliegue y control de versiones |
 | `docs/http/` | Peticiones de prueba por módulo para REST Client |

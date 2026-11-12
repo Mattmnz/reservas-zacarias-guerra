@@ -16,7 +16,7 @@ Como el Capítulo I es el mismo en E1 y E2, se cita una sola vez como `E1 Cap. I
 
 **Fuentes de las justificaciones:** §1 de la guía principal (decisiones cerradas del dominio), el contrato técnico del equipo, que se versionará como `docs/contrato.md` (#36); #31 (redistribución de tareas) y #35 (plan del sprint final, con sus comentarios).
 
-**Corte de la evidencia:** `develop` en el commit `b8bc62e` (merge del PR #87), al 06/11/2026. Ese día `npm test` da 710 pruebas, 710 en verde.
+**Corte de la evidencia:** `develop` en el commit `b9b8bfb` (merge del PR #92), al 11/11/2026, más los modelos de `docs/modelos/` de este PR. Ese día `npm test` da 710 pruebas, 710 en verde.
 
 **Cómo se mantiene:**
 - Cuando un PR se integra a `develop`, sus filas pasan de `pendiente (#N)` a `cumplido` o `modificado`, con la evidencia nueva, y se actualiza el corte.
@@ -30,7 +30,7 @@ Como el Capítulo I es el mismo en E1 y E2, se cita una sola vez como `E1 Cap. I
 | --- | --- |
 | `cumplido` | Está en `develop` tal como se comprometió. Cita evidencia: archivo, endpoint, prueba o PR integrado |
 | `modificado` | Está en `develop`, pero distinto de lo comprometido. Cita la evidencia y la justificación (Guía §1, contrato técnico, #31 o #35) |
-| `omitido` | Se recortó según el orden de recorte de #35. Ninguna fila queda en este estado: los recortes aplicados no eran filas de la matriz (sección 7) |
+| `omitido` | Se recortó según el orden de recorte de #35 o por decisión del responsable registrada en #35. Cita la justificación. Los recortes aplicados no eran filas de la matriz (sección 7) |
 | `pendiente (#N)` | Todavía no está en `develop`; lo resuelve el issue #N. Es un estado transitorio |
 
 - Si un compromiso tiene partes con estados o evidencias distintas, se divide en sub-filas (`.a`, `.b`, …). Si no, va en una sola fila.
@@ -103,7 +103,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Justificación / nota |
 | --- | --- | --- | --- | --- | --- |
-  | RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | `docs/guion-demo.md`: recorrido completo por las pantallas y registro de la corrida 1 contra producción (06/11/2026), sin errores; PR #74 y #88 | cumplido | Sin prueba con personas externas (recorte 3, sección 7) |
+| RNF01 | Interfaz clara y usable sin capacitación | E1 Cap. I | `docs/guion-demo.md`: recorrido completo por las pantallas y registro de ejecución contra producción (sección 8). Corrida 1 (06/11/2026): siete pasos omitidos (8, 9, 19, 20, 24, 38 y 39) y el resto sin errores. Corrida complementaria (11/11/2026): esos siete pasos, sin errores; PR #74, #88 y #91 | cumplido | Sin prueba con personas externas (recorte 3, sección 7) |
 | RNF02 | Contraseñas guardadas con hash | E1 Cap. I | `auth.service.registrar` usa `bcrypt.hash`; columna `Usuario.PasswordHash` (`001_esquema.sql`); PR #32 | cumplido | |
 | RNF03.a | Acceso restringido según el rol (API) | E1 Cap. I | Igual que RF14.a; `autenticar` rechaza a los usuarios inactivos | cumplido | |
 | RNF03.b | Acceso restringido según el rol (frontend) | E1 Cap. I | Igual que RF14.b | cumplido | |
@@ -115,7 +115,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | RNF07 | Desplegado en un entorno público para la defensa | E1 Cap. I | https://reservas-zacarias-guerra.onrender.com; job `Despliegue` en `.github/workflows/ci.yml`; `db/produccion/usuario-app.sql`; PR #67, #75, #83 y #86; comentario de cierre de #39 | cumplido | Render y Azure SQL Database (#35 dec. 4 y 5). `main` está en `81bca1b` (PR #86), con todas las pantallas (PR #83) |
 | RNF08 | Agregar canchas o modalidades sin rediseño | E1 Cap. I | Tabla `TipoCancha` y `Cancha.TipoCanchaId` (`001_esquema.sql`, PR #30); `GET /api/tipos-cancha` y alta de canchas (PR #34) | cumplido | La disponibilidad hace tres consultas en total, sin N+1 (`disponibilidad.service.consultar`, PR #58) |
 | RNF09.a | Dos reservas simultáneas no ocupan el mismo horario | E1 Cap. I | Índice `UX_Reserva_SlotActivo` (`002_indices.sql`, PR #30); `SELECT … WITH (UPDLOCK, HOLDLOCK)` en `reservas.repository.js` y traducción de 2601/2627 a `HORARIO_OCUPADO` en `reservas.service.js`; pruebas de "crear: transacción"; PR #53 | cumplido | |
-| RNF09.b | Prueba de 10 solicitudes simultáneas | E1 Cap. I | `scripts/concurrencia-reservas.js`: 10 `POST /api/reservas` simultáneos, 1 × 201 y 9 × 409 `HORARIO_OCUPADO` en cada ronda, con verificación en la base; PR #56 | cumplido | Requiere base local: no corre en `npm test` ni en CI |
+| RNF09.b | Prueba de 10 solicitudes simultáneas | E1 Cap. I | `scripts/concurrencia-reservas.js`: 10 `POST /api/reservas` simultáneos, 1 × 201 y 9 × 409 `HORARIO_OCUPADO` en cada ronda, con verificación en la base; PR #56. Corrida complementaria del 11/11/2026 (`docs/guion-demo.md`, sección 8, paso 39): 5 rondas, 1 × 201 y 9 × 409 en cada una; PR #91 | cumplido | Requiere base local: no corre en `npm test` ni en CI |
 
 ### 3.3 Casos de uso
 
@@ -203,9 +203,9 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Corrección | Justificación / nota |
 | --- | --- | --- | --- | --- | --- | --- |
-| MOD-CU-GEN | Diagrama general de casos de uso | E1 Cap. I | — | pendiente (#49) | 4.1 y 4.2 | |
-| MOD-CU-01 | Ficha y diagrama de CU-01 | E1 Cap. I | — | pendiente (#49) | 4.1 | |
-| MOD-CU-02 | Ficha y diagrama de CU-02 | E1 Cap. I | — | pendiente (#49) | 4.1 | |
+| MOD-CU-GEN | Diagrama general de casos de uso | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 1), `casos-de-uso.puml` e `img/casos-de-uso.png` | cumplido | 4.1 y 4.2 | Con las correcciones de 4.1. Las ampliaciones de 4.2 no se aplican (#35, comentario del 11/11) |
+| MOD-CU-01 | Ficha y diagrama de CU-01 | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 2, con la ficha), `cu-01-reservar-cancha.puml` e `img/cu-01-reservar-cancha.png` | cumplido | 4.1 | |
+| MOD-CU-02 | Ficha y diagrama de CU-02 | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 3), `cu-02-cancelar-reserva.puml` e `img/cu-02-cancelar-reserva.png` | cumplido | 4.1 | La ficha no cambia |
 | MOD-CON.a | Contenido: Usuario abstracto con Cliente y Administrador como subclases | E1 Cap. I | Tabla única `Usuario` con `Rol` (`CK_Usuario_Rol`) y `Telefono`; PR #30 | modificado | 4.1 | Herencia en una sola tabla (Guía §1, Usuarios). `Administrador.cargo` no figura en el esquema acordado (contrato técnico, Esquema) |
 | MOD-CON.b | Contenido: Cancha con `modalidad`, `precioPorHora` y `estado` | E1 Cap. I | Tablas `TipoCancha` (código, precio) y `Cancha` (`TipoCanchaId`, `Activa`); PR #30 | modificado | 4.1 | El precio depende del tipo de cancha y se copia en la reserva (Guía §1, Precio) |
 | MOD-CON.c | Contenido: Horario con `fecha`, `horaInicio`, `horaFin` y `disponible` | E1 Cap. I | `Horario(CanchaId, DiaSemana, HoraApertura, HoraCierre)`; PR #30 y #52 | modificado | 4.1 | Apertura y cierre por día de la semana; los bloques de 1 h se calculan (Guía §1, Bloques horarios). La disponibilidad no se guarda |
@@ -213,15 +213,16 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | MOD-CON.e | Contenido: sin `Pago`, `Auditoria` ni `Notificacion` | E1 Cap. I | Tablas `Pago`, `Auditoria` y `Notificacion` (`001_esquema.sql`); PR #30 | modificado | 4.1 | Las exigen el pago simulado, RF13 y RF12 (Guía §1, Pago y Notificaciones; contrato técnico, Esquema) |
 | MOD-CON.f | Contenido: métodos en las entidades (`simularPago()`, `cancelar()`, …) | E1 Cap. I | Lógica en los services de cada módulo (`src/modules/*/…service.js`) | modificado | 4.1 | Las reglas viven en la capa de servicio (contrato técnico, Estructura) |
 | MOD-EST.a | Flujo de estados de la reserva (objetivo específico 3) | E1 objetivos e introducción | `ESTADOS` (`src/shared/constantes.js`); `CK_Reserva_Estado`; tabla de transiciones en `src/modules/reservas/reglas.js` con `reglas.test.js`; PR #29 y #30 | modificado | 4.1 | Estados `PAGADA`, `CONFIRMADA`, `COMPLETADA`, `CANCELADA` y `NO_SHOW`; sin "pendiente" (Guía §1, Estados) |
-| MOD-EST.b | Diagrama de estados de la reserva | E1 objetivos | — | pendiente (#49) | 4.1 | El modelo de procesos entregado no lo tiene |
+| MOD-EST.b | Diagrama de estados de la reserva | E1 objetivos | `docs/modelos/estados-reserva.md` (Mermaid) e `img/estados-reserva.png`; PR #92 | cumplido | 4.1 | El modelo de procesos entregado no lo tenía. Sale de la tabla de transiciones de `reglas.js` |
 | MOD-NAV.a | Navegación: nodos N1 a N7 y enlaces E1 a E8 y E10 a E12 de E1 (Login, Registro, Catálogo «menu», Detalle y reserva, Historial, Confirmación, Panel administrador «menu») | E1 Cap. I | Tabla de nodos y rutas de `public/README.md`; `public/login.html`, `public/registro.html`, `public/cliente/`, `public/admin/panel.html`; PR #65, #68 y #70 | cumplido | | Una página por nodo (#35 dec. 1) |
 | MOD-NAV.b | Navegación: nodo N8 Gestionar canchas y enlace E9 | E1 Cap. I | `public/admin/canchas.html`; opción Canchas de `MENUS` en `public/js/sesion.js`; PR #80 | cumplido | | Ver RF08.c |
 | MOD-NAV.c | Ampliación del modelo navegacional documentada: 13 nodos y 20 enlaces (N9 a N13 y A1 a A8) | #35 dec. 1 y 2 | `docs/modelos/navegacion.md` (tablas de nodos y enlaces); PR #60 | cumplido | | |
 | MOD-NAV.d | Ampliación integrada: nodos N11, N12 y N13; enlaces A1, A3, A4, A7 y A8 | #35 dec. 1 y 2 | `public/admin/usuarios.html`, PR #72; `public/admin/auditoria.html`, PR #73; `public/cliente/notificaciones.html`, PR #71; A7 y A8 en `public/js/sesion.js`, PR #65 | cumplido | | Ver RF17.b, RF13.g, RF12.c y CU-01.A2 |
 | MOD-NAV.e | Ampliación integrada: nodos N9 y N10; enlaces A2, A5 y A6 | #35 dec. 1 y 2 | `public/admin/horario.html`, PR #80; `public/admin/reservas.html`, PR #81; A2 en `MENUS` (`public/js/sesion.js`); A5 en `public/js/paginas/canchas.js` y A6 en `public/admin/horario.html`, PR #80 | cumplido | | N10 incluye registrar asistencia (#42). Ver RF09.b y RF10.b |
-| MOD-NAV.f | Diagrama del modelo navegacional | #35 dec. 1 y 2 | — | pendiente (#49) | | Los modelos corregidos van en `docs/modelos/` con fuente y PNG; el formato lo decide el responsable |
-| MOD-PRE-1 | Presentación: catálogo con filtros de fecha y modalidad, estado y precio por cancha | E1 Cap. I | `public/cliente/catalogo.html`, `public/js/paginas/catalogo.js`: filtros de fecha y tipo, tipo y precio por cancha, bloques libres; PR #68 | modificado | Sección 5 | No hay un "estado" por cancha: se muestran sus bloques libres o "Sin horarios libres", porque la disponibilidad se calcula por bloque (Guía §1, Bloques horarios). Los precios del dibujo (C$ 500 y C$ 800) son ilustrativos; los reales salen de `TipoCancha` |
-| MOD-PRE-2.a | Presentación: confirmar reserva con pago simulado | E1 Cap. I | `public/cliente/reserva.html`: aclaración de pago simulado y diálogo "Pagar y reservar"; PR #68 | cumplido | Sección 5 | El aviso de la regla de penalización al confirmar no está en la pantalla ni tiene issue (sección 5) |
+| MOD-NAV.f | Diagrama del modelo navegacional | #35 dec. 1 y 2 | `docs/modelos/navegacion.md` (sección 5), `navegacion.puml` e `img/navegacion.png` | cumplido | | |
+| MOD-PRE-1 | Presentación: catálogo con filtros de fecha y modalidad, estado y precio por cancha | E1 Cap. I | `public/cliente/catalogo.html`, `public/js/paginas/catalogo.js`: filtros de fecha y tipo, tipo y precio por cancha, bloques libres; PR #68 | modificado | | No hay un "estado" por cancha: se muestran sus bloques libres o "Sin horarios libres", porque la disponibilidad se calcula por bloque (Guía §1, Bloques horarios). Los precios del dibujo (C$ 500 y C$ 800) son ilustrativos; los reales salen de `TipoCancha` |
+| MOD-PRE-2.a | Presentación: confirmar reserva con pago simulado | E1 Cap. I | `public/cliente/reserva.html`: aclaración de pago simulado y diálogo "Pagar y reservar"; PR #68 | cumplido | | El aviso de la regla de penalización al confirmar está en MOD-PRE-2.b |
+| MOD-PRE-2.b | Presentación: aviso de la regla de penalización al confirmar la reserva | E1 Cap. I | — | omitido | | No se agrega a `public/cliente/reserva.html` ni a `confirmacion.html`. La regla se muestra al cancelar, en `public/cliente/historial.html`, con el porcentaje y el monto de la vista previa de la API (RF04). Lo confirma el responsable en la revisión de #49 |
 | MOD-PRO-EST.a | Estructura del proceso: CrearReserva «processClass» | E1 Cap. I | `reservas.service.crear`; PR #53 | cumplido | 4.2 | |
 | MOD-PRO-EST.b | Estructura del proceso: ConsultarDisponibilidad «query» | E1 Cap. I | `disponibilidad.service.consultar`; PR #58 | cumplido | 4.2 | |
 | MOD-PRO-EST.c | Estructura del proceso: CancelarReserva «processClass» | E1 Cap. I | `reservas.service.cancelar`; PR #64 | cumplido | 4.2 | |
@@ -235,9 +236,10 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Justificación / nota |
 | --- | --- | --- | --- | --- | --- |
-| OBJ-1 | Modelar los requisitos con casos de uso y modelo de contenido | E1 objetivos | — | pendiente (#49) | Los modelos se entregaron en E1; falta corregirlos según la sección 4 |
-| OBJ-2.a | Modelo navegacional diferenciado por rol | E1 objetivos | `docs/modelos/navegacion.md`, PR #60; pantallas integradas por rol (ver MOD-NAV.a y MOD-NAV.d) | cumplido | El modelo de presentación no tiene issue (sección 5). El diagrama está en MOD-NAV.f |
-| OBJ-3 | Modelo de procesos con el flujo de estados y la penalización | E1 objetivos | — | pendiente (#49) | Ver MOD-EST |
+| OBJ-1 | Modelar los requisitos con casos de uso y modelo de contenido | E1 objetivos | `docs/modelos/casos-de-uso.md` y `docs/modelos/contenido.md` (PR #92) | cumplido | Los modelos de E1, corregidos según la sección 4.1 |
+| OBJ-2.a | Modelo navegacional diferenciado por rol | E1 objetivos | `docs/modelos/navegacion.md`, PR #60; pantallas integradas por rol (ver MOD-NAV.a y MOD-NAV.d) | cumplido | El modelo de presentación está en OBJ-2.b. El diagrama está en MOD-NAV.f |
+| OBJ-2.b | Modelo de presentación de las demás pantallas | E1 objetivos; #35 dec. 2 | — | omitido | El modelo de presentación solo tiene catálogo y confirmar reserva (MOD-PRE-1 y MOD-PRE-2.a), y no se completa porque no da el tiempo (decisión del responsable, #35, comentario del 11/11). Las pantallas siguen el modelo navegacional (MOD-NAV) y se recorren en `docs/guion-demo.md` |
+| OBJ-3 | Modelo de procesos con el flujo de estados y la penalización | E1 objetivos | `docs/modelos/estados-reserva.md` (PR #92), con la penalización de cada transición; `docs/modelos/flujo-baja-cancha.md` | cumplido | Ver MOD-EST y MOD-PRO |
 | OBJ-4 | Seleccionar una arquitectura backend/frontend | E1 objetivos | E2 Cap. II, aplicada en `src/` (ARQ-01 a ARQ-03) | cumplido | |
 | OBJ-5.a | Backend: reservas y pagos (creación) | E1 objetivos | PR #53 | cumplido | |
 | OBJ-5.b | Backend: disponibilidad y no-show | E1 objetivos | PR #57 y #58 | cumplido | |
@@ -287,7 +289,7 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | DES-11 | Cada capa usa solo la inferior; los módulos se comunican por su servicio, con firmas fijas | E3 §3.2 | `reservas.service` usa `canchasService`, `horariosService`, `auditoriaService` y `notificacionesService`; firmas en el contrato técnico (Funciones entre módulos) | cumplido | Las firmas nuevas se registran en #35 (por ejemplo `obtenerParaActualizar`) |
 | DES-12 | Penalización y transiciones como funciones puras con pruebas de casos límite (24 h exactas) | E3 §3.2 y §3.3 | `src/modules/reservas/reglas.js` y `reglas.test.js`; PR #29 | cumplido | |
 | DES-13.a | `develop` integra y cada tarea tiene su rama | E3 §3.3 | Historial de `develop`: solo merges de PR desde ramas `feature/`, `chore/`, `docs/`, `test/`, `fix/` y `ci/` (PR #85) | cumplido | |
-| DES-13.b | `main` solo con versiones entregadas | E3 §3.3 | — | pendiente (#23) | Release `v0.3-backend`. El tag ya está en `main` (pre-release, PR #75), pero #23 sigue abierto |
+| DES-13.b | `main` solo con versiones entregadas | E3 §3.3 | Release `v1.0 — Entrega final` con el tag `v1.0` sobre `main` en `bc86292` (PR #90, 07/11/2026); `v0.3-backend` como pre-release (PR #75); #23 cerrado | cumplido | |
 | DES-14 | Todo cambio entra por PR aprobado por otro integrante | E3 §3.3 | PR #25–#34, #51–#75 y #77–#87: todos con aprobación de alguien distinto del autor. Fuera de los merges, `develop` solo tiene el commit inicial | cumplido | |
 | DES-15 | Rotación fija de revisores | E3 §3.3 | PR #51 (B) y #52 (A) los aprobó C; PR #53 (C) lo aprobó A; PR #54 y #58 (A) los aprobó C; PR #57 (C) lo aprobó A. Desde el corte: PR #56, #59, #60 y #61 (B), #64, #65 y #68 a #70 (C) los aprobó A; PR #55, #62 y #67 (A) y #71 a #73 (C) los aprobó B; PR #63 (B) y #66 y #75 (A) los aprobó C. Desde #74: PR #74 y #82 (B) y #80, #81, #83 y #86 (A) los aprobó C; PR #78 y #79 (B) y #87 (C) los aprobó A; PR #77 (C) y #84 y #85 (A) los aprobó B | modificado | Durante la redistribución A y C se revisan entre sí y C revisa a B (#31); después revisa el primero disponible de los otros dos (#35, Revisión) |
 | DES-16 | Ramas principales protegidas contra escritura directa, borrado y reescritura | E3 §3.3 | `gh api repos/Mattmnz/reservas-zacarias-guerra/rules/branches/{develop,main}`: ruleset 24905866 con `pull_request` (1 aprobación, solo merge commit), `non_fast_forward`, `deletion` y `required_status_checks` (Pruebas, Imagen Docker y Autoría de commits) en ambas ramas | cumplido | |
@@ -305,34 +307,36 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | DES-24.b | Etapa 5: no-show, disponibilidad y usuarios | E3 §3.4 | No-show: PR #57; disponibilidad: PR #58; usuarios: PR #51 | cumplido | |
 | DES-24.d | Etapa 5: cancelación y consultas administrativas | E3 §3.4 | Cancelación: PR #64; consultas: PR #63; baja de cancha: PR #66 | cumplido | |
 | DES-24.c | Etapa 6: prueba de reservas simultáneas | E3 §3.4 | Ver RNF09.b | cumplido | |
-| DES-24.e | Etapa 6: integración y versión del backend en `main` | E3 §3.4 | — | pendiente (#21, #23) | El tag `v0.3-backend` ya está en `main` (pre-release, PR #75); #21 y #23 siguen abiertos |
+| DES-24.e | Etapa 6: integración y versión del backend en `main` | E3 §3.4 | PR #90 integra `develop` en `main`, con el tag `v1.0`; prueba integral en `docs/guion-demo.md` (PR #74, #88 y #91); #21 y #23 cerrados | cumplido | |
 
 ## 4. Modelos: qué hay que corregir
 
-Todo lo de esta sección es `pendiente (#49)` y se resuelve en el PR de `docs/modelos/`.
+Las correcciones de 4.1 están aplicadas en `docs/modelos/`: la columna "Resuelta en" indica el archivo de cada una. Las ampliaciones de 4.2 no se aplican.
 
 ### 4.1 Correcciones
 
 En estos puntos el diagrama contradice lo implementado o lo decidido.
 
-| Modelo | Corrección | Base |
-| --- | --- | --- |
-| Casos de uso general | Simular pago pasa de `<<extend>>` a `<<include>>` de Reservar cancha | Ficha y diagrama de CU-01; Guía §1 (Pago); RF06.a |
-| Casos de uso general | Quitar la asociación de Registrar usuario con el Administrador | Guía §1 (Usuarios): el registro público solo crea clientes |
-| CU-01 (ficha) | Quitar el punto de extensión "si el Cliente elige pagar en línea": el pago es parte del flujo básico | Guía §1 (Pago) |
-| CU-01 (ficha) | Paso 4: la reserva se registra en `PAGADA`, no en "Reservado" | Guía §1 (Estados); `CK_Reserva_Estado` |
-| CU-02 (diagrama) | El rótulo dice "CU-03: Cancelar reserva"; debe decir CU-02 | Ficha de CU-02 |
-| Contenido (clases) | Agregar `Pago`, `Auditoria` y `Notificacion`, con sus relaciones con Reserva y Usuario | `001_esquema.sql`; alcance de #49 |
-| Contenido (clases) | Agregar `TipoCancha` (código, nombre, precio por hora) y quitar `modalidad` y `precioPorHora` de Cancha; `estado` pasa a `activa` | `001_esquema.sql`; Guía §1 (Precio) |
-| Contenido (clases) | Horario: `diaSemana`, `horaApertura` y `horaCierre` en lugar de `fecha`, `horaInicio`, `horaFin` y `disponible` | `001_esquema.sql`; Guía §1 (Bloques horarios) |
-| Contenido (clases) | Reserva: `inicio`, `monto`, `estado`, `activa` y `montoPenalizado`; asociada a Cancha y a Cliente, no a Horario | `001_esquema.sql` |
-| Contenido (clases) | Usuario con `rol` y `telefono` como implementación en una sola tabla; quitar `Administrador.cargo` y llevar `telefono` a Usuario | Guía §1 (Usuarios); `001_esquema.sql` |
-| Procesos: flujo de baja de cancha | La rama "No" de "¿Reservas activas?" va hoy a "Cancelar reservas"; debe ir a "Actualizar estado". No se cambia el orden de las actividades | Lógica del propio flujo; RF08 |
-| Procesos: estados de la reserva | Agregar un diagrama de estados derivado de la tabla de transiciones de `reglas.js`: `PAGADA` (inicial) → `CONFIRMADA` (confirmar) → `COMPLETADA` (registrar asistencia); desde `PAGADA` o `CONFIRMADA` → `CANCELADA` (cancelar) o `NO_SHOW` (marcar no-show); `COMPLETADA`, `CANCELADA` y `NO_SHOW` son finales. Corregir también la lista de estados de la introducción | Objetivo específico 3; Guía §1 (Estados); `src/modules/reservas/reglas.js` |
+| Modelo | Corrección | Base | Resuelta en |
+| --- | --- | --- | --- |
+| Casos de uso general | Simular pago pasa de `<<extend>>` a `<<include>>` de Reservar cancha | Ficha y diagrama de CU-01; Guía §1 (Pago); RF06.a | `docs/modelos/casos-de-uso.md`, sección 1 |
+| Casos de uso general | Quitar la asociación de Registrar usuario con el Administrador | Guía §1 (Usuarios): el registro público solo crea clientes | `docs/modelos/casos-de-uso.md`, sección 1 |
+| CU-01 (ficha) | Quitar el punto de extensión "si el Cliente elige pagar en línea": el pago es parte del flujo básico | Guía §1 (Pago) | `docs/modelos/casos-de-uso.md`, sección 2 |
+| CU-01 (ficha) | Paso 4: la reserva se registra en `PAGADA`, no en "Reservado" | Guía §1 (Estados); `CK_Reserva_Estado` | `docs/modelos/casos-de-uso.md`, sección 2 |
+| CU-01 (diagrama) | El actor está rotulado "Actor"; debe ser el Cliente | Ficha de CU-01 (actor principal: Cliente) | `docs/modelos/casos-de-uso.md`, sección 2 |
+| CU-01 (diagrama) | El `<<include>>` de Simular pago va de Simular pago hacia Reservar cancha; debe ir de Reservar cancha hacia Simular pago, como el de Consultar disponibilidad | Notación de `<<include>>`: va del caso base al incluido | `docs/modelos/casos-de-uso.md`, sección 2 |
+| CU-02 (diagrama) | El rótulo dice "CU-03: Cancelar reserva"; debe decir CU-02 | Ficha de CU-02 | `docs/modelos/casos-de-uso.md`, sección 3 |
+| Contenido (clases) | Agregar `Pago`, `Auditoria` y `Notificacion`, con sus relaciones con Reserva y Usuario | `001_esquema.sql`; alcance de #49 | `docs/modelos/contenido.md`, sección 5 |
+| Contenido (clases) | Agregar `TipoCancha` (código, nombre, precio por hora) y quitar `modalidad` y `precioPorHora` de Cancha; `estado` pasa a `activa` | `001_esquema.sql`; Guía §1 (Precio) | `docs/modelos/contenido.md`, sección 5 |
+| Contenido (clases) | Horario: `diaSemana`, `horaApertura` y `horaCierre` en lugar de `fecha`, `horaInicio`, `horaFin` y `disponible` | `001_esquema.sql`; Guía §1 (Bloques horarios) | `docs/modelos/contenido.md`, sección 5 |
+| Contenido (clases) | Reserva: `inicio`, `monto`, `estado`, `activa` y `montoPenalizado`; asociada a Cancha y a Cliente, no a Horario | `001_esquema.sql` | `docs/modelos/contenido.md`, sección 5 |
+| Contenido (clases) | Usuario con `rol` y `telefono` como implementación en una sola tabla; quitar `Administrador.cargo` y llevar `telefono` a Usuario | Guía §1 (Usuarios); `001_esquema.sql` | `docs/modelos/contenido.md`, sección 5 |
+| Procesos: flujo de baja de cancha | La rama "No" de "¿Reservas activas?" va hoy a "Cancelar reservas"; debe ir a "Actualizar estado". No se cambia el orden de las actividades | Lógica del propio flujo; RF08 | `docs/modelos/flujo-baja-cancha.md` |
+| Procesos: estados de la reserva | Agregar un diagrama de estados derivado de la tabla de transiciones de `reglas.js`: `PAGADA` (inicial) → `CONFIRMADA` (confirmar); `PAGADA` o `CONFIRMADA` → `COMPLETADA` (registrar asistencia; `PAGADA` pasa directo, sin confirmar); desde `PAGADA` o `CONFIRMADA` → `CANCELADA` (cancelar) o `NO_SHOW` (marcar no-show); `COMPLETADA`, `CANCELADA` y `NO_SHOW` son finales. Corregir también la lista de estados de la introducción | Objetivo específico 3; Guía §1 (Estados); `src/modules/reservas/reglas.js` | `docs/modelos/estados-reserva.md`: diagrama y lista vigente de estados (sección 2). El texto de la introducción se corrige en el informe |
 
 ### 4.2 Ampliaciones
 
-Agregan elementos que el modelo no tenía. Las decide el responsable de #49.
+Agregan elementos que el modelo no tenía. No se aplican, por decisión del responsable del 11/11 (#35): el alcance de #49 se limita a las correcciones de 4.1. Esa decisión deja sin efecto la aprobación de las ampliaciones 1 a 5 del 06/11. La tabla queda como registro.
 
 | Modelo | Ampliación | Motivo |
 | --- | --- | --- |
@@ -345,12 +349,7 @@ Agregan elementos que el modelo no tenía. Las decide el responsable de #49.
 
 ## 5. Compromisos sin issue (huecos del plan)
 
-Estos compromisos no tienen un issue que los resuelva, así que no llevan estado. Los decide el responsable.
-
-| Compromiso | Fuente | Detalle |
-| --- | --- | --- |
-| Completar el modelo de presentación | E1 Cap. I; #35 dec. 2 | Solo tiene catálogo y confirmar reserva. #35 valida cada pantalla contra su modelo de presentación, y las demás pantallas no tienen uno. Es la parte de presentación de OBJ-2 |
-| Aviso de la regla de penalización al confirmar la reserva | E1 Cap. I (modelo de presentación); MOD-PRE-2.a | El modelo de presentación lo incluye, pero `public/cliente/reserva.html` y `public/cliente/confirmacion.html` no lo muestran; la regla solo aparece al cancelar, en `public/cliente/historial.html` |
+No quedan huecos. Los dos que había (completar el modelo de presentación y el aviso de la regla de penalización al confirmar la reserva) pasaron a la matriz como OBJ-2.b y MOD-PRE-2.b, en estado `omitido`.
 
 ## 6. Enunciados que no son compromisos de implementación
 
@@ -365,18 +364,23 @@ Se aplican los recortes 2 y 3 (#35, comentario del 06/11). Ninguno deja una fila
 
 1. Vista de auditoría en el frontend (#47). No se aplicó: #47 se integró (PR #73; RF13.g).
 2. Observación de #33 sobre `?entidadId` sin `entidad`. **Aplicado:** no se implementa. La pantalla de auditoría nombra la entidad en cada registro, y la mezcla afecta solo a la consulta, no a los datos guardados (RF13.g).
-3. Prueba de usabilidad con personas externas. **Aplicado:** no se hace. RNF01 queda respaldado por `docs/guion-demo.md` y su corrida contra producción del 06/11, que entra con el PR #88 (RNF01).
+3. Prueba de usabilidad con personas externas. **Aplicado:** no se hace. RNF01 queda respaldado por `docs/guion-demo.md` y sus corridas contra producción: la del 06/11 (PR #88) y la complementaria del 11/11 (PR #91) (RNF01).
+
+Fuera del orden de recorte, el responsable decidió el 11/11 (#35) omitir dos compromisos. Son las únicas filas en `omitido`:
+
+- OBJ-2.b: el modelo de presentación de las demás pantallas no se completa, porque no da el tiempo.
+- MOD-PRE-2.b: el aviso de la regla de penalización al confirmar no se agrega. La regla se muestra al cancelar, en `public/cliente/historial.html`. Lo confirma el responsable en la revisión.
 
 ## 8. Resumen
 
-Corte: `develop` en `b8bc62e` (06/11/2026).
+Corte: `develop` en `b9b8bfb` (11/11/2026), más los modelos de `docs/modelos/` de este PR; `npm test`: 710 pruebas, 710 en verde.
 
 | Estado | Filas |
 | --- | --- |
-| cumplido | 172 |
+| cumplido | 182 |
 | modificado | 18 |
-| omitido | 0 |
-| pendiente | 10 |
-| **Total** | **200** |
+| omitido | 2 |
+| pendiente | 0 |
+| **Total** | **202** |
 
-Issues con filas pendientes: #21, #23 y #49.
+Ninguna fila queda pendiente.
