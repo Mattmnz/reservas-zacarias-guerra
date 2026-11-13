@@ -1,0 +1,36 @@
+@startuml cu-02-cancelar-reserva
+' CU-02 (Sistema): Cancelar reserva (E1 Cap. I), con el rótulo corregido (decía CU-03)
+title CU-02 (Sistema): Cancelar reserva
+skinparam dpi 240
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F5F8FC
+  BorderColor #3B5B7F
+}
+skinparam actorBorderColor #3B5B7F
+skinparam ArrowColor #3B5B7F
+left to right direction
+
+actor Cliente
+actor Administrador
+
+rectangle "Sistema de Reserva de canchas Zacarías Guerra" {
+  usecase "Iniciar sesión" as Login
+  usecase "Ver historial reservas" as Historial
+  usecase "Cancelar reserva" as Cancelar
+  usecase "Registrar auditoría" as Auditoria
+  usecase "Notificar cliente" as Notificar
+}
+
+Cliente -- Cancelar
+Cliente -- Login
+
+Login -- Administrador
+Cancelar -- Administrador : A2: en nombre del Cliente
+
+Cancelar ..> Historial : <<extend>>
+Cancelar ..> Auditoria : <<include>>
+Cancelar ..> Notificar : <<include>>
+@enduml

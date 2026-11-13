@@ -1,0 +1,40 @@
+@startuml flujo-baja-cancha
+' Flujo de baja de cancha (E1 Cap. I, modelo de procesos), con la rama "No" de "¿Reservas activas?" corregida
+skinparam dpi 240
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F5F8FC
+  BorderColor #3B5B7F
+}
+skinparam ArrowColor #3B5B7F
+skinparam swimlaneWidth 420
+
+|Administrador|
+start
+:Iniciar sesión;
+:Seleccionar cancha a dar de baja;
+:Solicitar baja;
+|Sistema|
+:Verificar reservas activas o futuras;
+if (¿Reservas activas?) then (Sí)
+  |Administrador|
+  :Ver alerta de reservas activas;
+  if (¿Proceder de igual forma?) then (No: cancelar, sin cambios)
+    stop
+  else (Sí)
+  endif
+  |Sistema|
+  :Cancelar reservas activas
+  (notificar clientes);
+else (No)
+endif
+|Sistema|
+:Actualizar estado
+(cancha → "baja");
+:Registrar en auditoría
+(usuario, fecha, motivo);
+|Administrador|
+:Ver confirmación de baja exitosa;
+stop
+@enduml

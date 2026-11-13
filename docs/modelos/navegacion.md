@@ -2,7 +2,7 @@
 
 Modelo navegacional UWE del frontend: los 8 nodos y 12 enlaces del Entregable 1 (E1 Cap. I, Modelo Navegacional), sin cambios, y su ampliación para las pantallas de #40 a #47. Cada nodo es una página del frontend, y cada pantalla se valida contra su nodo (#35, decisiones 1 y 2). Responde al issue #49.
 
-Este documento todavía no incluye un diagrama: solo lista los nodos y los enlaces.
+El diagrama está en la sección 5 y dibuja exactamente los nodos y los enlaces de las secciones 2 y 3.
 
 ## 1. Convenciones
 
@@ -77,3 +77,23 @@ La disponibilidad no tiene nodo propio: se consulta en el Catálogo, como en el 
 - **Sin estereotipo:** Login, Registro y Confirmación de reserva no tienen estereotipo en E1 y se dejan así.
 - **Cierre de sesión:** E1 lo modela como una acción del menú persistente (E5 y E6), disponible en cualquier página autenticada del rol.
 - **Condiciones de E1:** E1 solo rotula E5, E6 y E10. Las demás condiciones de los enlaces E1 a E12 se derivan del texto y de la leyenda de E1, sin cambiar sus nodos ni sus enlaces.
+
+## 5. Diagrama
+
+![Modelo navegacional](img/navegacion.png)
+
+Fuente PlantUML: [`navegacion.puml`](navegacion.puml).
+
+- **Nodos:** cada nodo lleva su id, su nombre y el estereotipo de la sección 2. El color indica el rol: entrada común, Cliente o Administrador.
+- **Enlaces:** cada enlace lleva su id de la sección 3. La línea continua es avance. La línea punteada es retorno, cierre de sesión o enlace hacia adelante (E2, E5, E6, E11, E12, A6, A7 y A8).
+- **A7 y A8:** el marco «Con sesión iniciada» agrupa los nodos de Cliente y de Administrador. A7 sale del marco hacia Login porque parte de cualquiera de esos nodos, y A8 vuelve de Login al marco, al nodo de origen.
+
+## 6. Cambios respecto del Entregable 1
+
+El modelo navegacional no tiene correcciones en la sección 4.1 de `docs/trazabilidad.md`.
+
+| Cambio | Fila de la matriz | En este diagrama |
+| --- | --- | --- |
+| Diagrama del modelo navegacional | MOD-NAV.f | Diagrama nuevo con la fuente PlantUML y el PNG |
+| Ampliación de la navegación: nodos N9 a N13 y enlaces A1 a A8 | MOD-NAV.c | Dibujados con los mismos estereotipos, colores y estilos de línea que los nodos y enlaces de E1 |
+| Trazado de E12 (sección 4) | MOD-NAV.a | E12 va de Confirmación de reserva a Catálogo de canchas sin pasar junto a Detalle y reserva |

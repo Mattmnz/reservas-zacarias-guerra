@@ -1,0 +1,76 @@
+@startuml navegacion
+' Modelo navegacional UWE: nodos y enlaces de docs/modelos/navegacion.md (E1 y su ampliación)
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #333333
+skinparam class {
+  BorderColor #333333
+  StereotypeFontColor #333333
+}
+skinparam package {
+  BorderColor #777777
+  FontColor #333333
+}
+hide circle
+hide members
+hide empty methods
+
+' Entrada común (sin sesión)
+class "N1 · Login" as N1 #EDEDED
+class "N2 · Registro" as N2 #EDEDED
+
+package "Con sesión iniciada" as Sesion <<Frame>> {
+  package "Cliente" as PCliente <<Rectangle>> {
+    class "N3 · Catálogo de canchas" as N3 <<menu>> #D6E6F7
+    class "N4 · Detalle y reserva" as N4 <<processClass>> #D6E6F7
+    class "N5 · Historial de reservas" as N5 <<query>> #D6E6F7
+    class "N6 · Confirmación de reserva" as N6 #D6E6F7
+    class "N13 · Notificaciones" as N13 <<query>> #D6E6F7
+  }
+  package "Administrador" as PAdmin <<Rectangle>> {
+    class "N7 · Panel administrador" as N7 <<menu>> #F8E3C8
+    class "N8 · Gestionar canchas" as N8 <<processClass>> #F8E3C8
+    class "N9 · Horario de cancha" as N9 <<processClass>> #F8E3C8
+    class "N10 · Reservas del complejo" as N10 <<query>> #F8E3C8
+    class "N11 · Gestionar usuarios" as N11 <<processClass>> #F8E3C8
+    class "N12 · Auditoría" as N12 <<query>> #F8E3C8
+  }
+}
+
+' Enlaces de E1
+N1 --> N2 : E1
+N2 ..> N1 : E2
+N1 --> N3 : E3
+N1 --> N7 : E4
+N3 ..> N1 : E5\n<<cerrar sesión>>
+N7 ..> N1 : E6\n<<cerrar sesión>>
+N3 --> N4 : E7
+N3 --> N5 : E8
+N7 --> N8 : E9
+N4 --> N6 : E10\n<<processLink>>
+N6 ..> N5 : E11
+N6 ..> N3 : E12
+
+' Ampliación
+N3 --> N13 : A1
+N7 --> N10 : A2
+N7 --> N11 : A3
+N7 --> N12 : A4
+N8 --> N9 : A5
+N9 ..> N8 : A6
+Sesion ..> N1 : A7\n(sesión expirada)
+N1 ..> Sesion : A8\n(retoma el flujo)
+
+legend right
+  |= Color |= Rol |
+  |<#EDEDED>      | Entrada común (sin sesión) |
+  |<#D6E6F7>      | Cliente |
+  |<#F8E3C8>      | Administrador |
+  ----
+  Línea continua: navegación (avance)
+  Línea punteada: retorno, cierre de sesión
+  o enlace hacia adelante
+  E1–E12: enlaces de E1; A1–A8: ampliación
+endlegend
+@enduml
