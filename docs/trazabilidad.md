@@ -140,7 +140,7 @@ Las rutas de archivo son relativas a la raíz del repositorio. Los endpoints se 
 | CU-GEN-09.b | Cancelar reserva: pantalla del administrador | E1 Cap. I | Ver RF11.d | cumplido | |
 | CU-GEN-10.a | Confirmar reserva (API) | E1 Cap. I | `PATCH /api/reservas/:id/confirmar`; PR #57 (ver RF11.a) | cumplido | |
 | CU-GEN-10.b | Confirmar reserva (pantalla) | E1 Cap. I | Ver RF11.c | cumplido | |
-| CU-GEN-11.a | Notificar cliente: al crear | E1 Cap. I | Ver RF12.a | cumplido | En el diagrama lo incluyen Cancelar y Confirmar |
+| CU-GEN-11.a | Notificar cliente: al crear | E1 Cap. I | Ver RF12.a | cumplido | En el diagrama lo incluyen Reservar, Confirmar, Cancelar, Registrar asistencia y Marcar no-show |
 | CU-GEN-11.b | Notificar cliente: al confirmar | E1 Cap. I | Ver RF12.b | cumplido | |
 | CU-GEN-11.c | Notificar cliente: al cancelar, y su pantalla | E1 Cap. I | Ver RF12.d y RF12.c | cumplido | |
 | CU-GEN-12.a | Gestionar canchas: registrar, editar y alta | E1 Cap. I | Ver RF08.a | cumplido | |
@@ -203,7 +203,7 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 
 | ID | Compromiso | Fuente | Dónde se cumple (evidencia) | Estado | Corrección | Justificación / nota |
 | --- | --- | --- | --- | --- | --- | --- |
-| MOD-CU-GEN | Diagrama general de casos de uso | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 1), `casos-de-uso.puml` e `img/casos-de-uso.png` | cumplido | 4.1 y 4.2 | Con las correcciones de 4.1. Las ampliaciones de 4.2 no se aplican (#35, comentario del 11/11) |
+| MOD-CU-GEN | Diagrama general de casos de uso | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 1), `casos-de-uso.puml` e `img/casos-de-uso.png` | cumplido | 4.1 y 4.2 | Con las correcciones de 4.1 y las ampliaciones 1 a 4 de 4.2 (#35, comentario del 12/11) |
 | MOD-CU-01 | Ficha y diagrama de CU-01 | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 2, con la ficha), `cu-01-reservar-cancha.puml` e `img/cu-01-reservar-cancha.png` | cumplido | 4.1 | |
 | MOD-CU-02 | Ficha y diagrama de CU-02 | E1 Cap. I | `docs/modelos/casos-de-uso.md` (sección 3), `cu-02-cancelar-reserva.puml` e `img/cu-02-cancelar-reserva.png` | cumplido | 4.1 | La ficha no cambia |
 | MOD-CON.a | Contenido: Usuario abstracto con Cliente y Administrador como subclases | E1 Cap. I | Tabla única `Usuario` con `Rol` (`CK_Usuario_Rol`) y `Telefono`; PR #30 | modificado | 4.1 | Herencia en una sola tabla (Guía §1, Usuarios). `Administrador.cargo` no figura en el esquema acordado (contrato técnico, Esquema) |
@@ -311,7 +311,7 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 
 ## 4. Modelos: qué hay que corregir
 
-Las correcciones de 4.1 están aplicadas en `docs/modelos/`: la columna "Resuelta en" indica el archivo de cada una. Las ampliaciones de 4.2 no se aplican.
+Las correcciones de 4.1 están aplicadas en `docs/modelos/`: la columna "Resuelta en" indica el archivo de cada una. De las ampliaciones de 4.2 se aplican la 1 a la 4.
 
 ### 4.1 Correcciones
 
@@ -336,16 +336,16 @@ En estos puntos el diagrama contradice lo implementado o lo decidido.
 
 ### 4.2 Ampliaciones
 
-Agregan elementos que el modelo no tenía. No se aplican, por decisión del responsable del 11/11 (#35): el alcance de #49 se limita a las correcciones de 4.1. Esa decisión deja sin efecto la aprobación de las ampliaciones 1 a 5 del 06/11. La tabla queda como registro.
+Agregan elementos que el modelo no tenía. El 06/11 se aprobaron la 1 a la 5 y la 6 quedó fuera. El 11/11 se descartaron todas para limitar #49 a las correcciones de 4.1, y el 12/11 se volvieron a incluir la 1 a la 4, porque sin ellas el diagrama general no muestra el registro de asistencia ni el no-show, que el sistema implementa (#35, comentario del 12/11).
 
-| Modelo | Ampliación | Motivo |
-| --- | --- | --- |
-| Casos de uso general | Agregar Registrar asistencia (Administrador) | Estado `COMPLETADA` (Guía §1); #17 |
-| Casos de uso general | Agregar el no-show automático (Sistema) | CU-02 A1; Guía §1 (No-show); #17 |
-| Casos de uso general | Agregar Registrar auditoría, incluido por Cancelar reserva y los demás cambios de estado | Ficha de CU-02; RF13 |
-| Casos de uso general | Agregar Notificar cliente como inclusión de Reservar cancha | PR #53 notifica al crear; RF12 |
-| Procesos: estructura | Agregar las clases de proceso de confirmar, registrar asistencia y no-show | #17; tabla de transiciones de `reglas.js` |
-| Procesos: flujo de reservar | Indicar que pago, auditoría y notificación ocurren en una sola transacción | DES-21 y DES-22. Opcional |
+| Modelo | Ampliación | Motivo | Resuelta en |
+| --- | --- | --- | --- |
+| Casos de uso general | Agregar Registrar asistencia (Administrador) | Estado `COMPLETADA` (Guía §1); #17 | `docs/modelos/casos-de-uso.md`, sección 1 |
+| Casos de uso general | Agregar el no-show automático (Sistema) | CU-02 A1; Guía §1 (No-show); #17 | `docs/modelos/casos-de-uso.md`, sección 1: Marcar no-show, con el actor Sistema |
+| Casos de uso general | Agregar Registrar auditoría, incluido por Cancelar reserva y los demás cambios de estado | Ficha de CU-02; RF13 | `docs/modelos/casos-de-uso.md`, sección 1 |
+| Casos de uso general | Agregar Notificar cliente como inclusión de Reservar cancha | PR #53 notifica al crear; RF12 | `docs/modelos/casos-de-uso.md`, sección 1 |
+| Procesos: estructura | Agregar las clases de proceso de confirmar, registrar asistencia y no-show | #17; tabla de transiciones de `reglas.js` | No se aplica: `docs/modelos/` no tiene un diagrama de estructura de procesos. Las tres transiciones están en `docs/modelos/estados-reserva.md` |
+| Procesos: flujo de reservar | Indicar que pago, auditoría y notificación ocurren en una sola transacción | DES-21 y DES-22. Opcional | No se aplica (decisión del 06/11) |
 
 ## 5. Compromisos sin issue (huecos del plan)
 

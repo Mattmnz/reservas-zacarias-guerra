@@ -1,5 +1,5 @@
 @startuml casos-de-uso
-' Diagrama general de casos de uso (E1 Cap. I) con las correcciones de la sección 4.1 de docs/trazabilidad.md
+' Diagrama general de casos de uso (E1 Cap. I) con las correcciones de la sección 4.1 y las ampliaciones 1 a 4 de la sección 4.2 de docs/trazabilidad.md
 skinparam dpi 220
 skinparam defaultFontName Arial
 skinparam shadowing false
@@ -14,6 +14,7 @@ left to right direction
 
 actor Cliente
 actor Administrador
+actor Sistema
 
 rectangle "Sistema de Reserva de canchas Zacarías Guerra" {
   usecase "Registrar usuario" as RegUsuario
@@ -30,6 +31,9 @@ rectangle "Sistema de Reserva de canchas Zacarías Guerra" {
   usecase "Definir horarios" as Horarios
   usecase "Ver reservas del complejo" as ReservasComplejo
   usecase "Gestionar usuarios" as Usuarios
+  usecase "Registrar asistencia" as Asistencia
+  usecase "Marcar no-show" as NoShow
+  usecase "Registrar auditoría" as Auditoria
 }
 
 Cliente -- Disponibilidad
@@ -49,12 +53,24 @@ Confirmar --- Administrador
 Canchas --- Administrador
 Horarios --- Administrador
 ReservasComplejo --- Administrador
+Asistencia --- Administrador
+
+NoShow --- Sistema
 
 Disponibilidad <. Reservar : <<include>>
 Reservar .> Pago : <<include>>
 Cancelar .> Historial : <<extend>>
 Cancelar ..> Notificar : <<include>>
 Confirmar ..> Notificar : <<include>>
+Reservar ..> Notificar : <<include>>
+Asistencia ..> Notificar : <<include>>
+NoShow ..> Notificar : <<include>>
+
+Reservar ..> Auditoria : <<include>>
+Confirmar ..> Auditoria : <<include>>
+Cancelar ..> Auditoria : <<include>>
+Asistencia ..> Auditoria : <<include>>
+NoShow ..> Auditoria : <<include>>
 
 legend right
   <<include>>: obligatorio

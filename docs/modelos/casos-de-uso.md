@@ -1,6 +1,6 @@
 # Modelo de casos de uso
 
-Diagrama general de casos de uso, ficha y diagrama de CU-01 y diagrama de CU-02, corregidos. Reemplazan a los del Entregable 1 (E1 Cap. I, Modelo de Casos de Uso) y aplican las correcciones de casos de uso de la sección 4.1 de `docs/trazabilidad.md` (filas MOD-CU-GEN, MOD-CU-01 y MOD-CU-02). Responde al issue #49.
+Diagrama general de casos de uso, ficha y diagrama de CU-01 y diagrama de CU-02, corregidos. Reemplazan a los del Entregable 1 (E1 Cap. I, Modelo de Casos de Uso) y aplican las correcciones de casos de uso de la sección 4.1 de `docs/trazabilidad.md` (filas MOD-CU-GEN, MOD-CU-01 y MOD-CU-02), y las ampliaciones 1 a 4 de la sección 4.2 en el diagrama general. Responde al issue #49.
 
 Lo que no figura en las tablas de cambios se dibuja igual que en el Entregable 1.
 
@@ -10,9 +10,10 @@ Lo que no figura en las tablas de cambios se dibuja igual que en el Entregable 1
 
 Fuente PlantUML: [`casos-de-uso.puml`](casos-de-uso.puml).
 
-- **Actores:** Cliente y Administrador.
-- **Casos de uso (14):** Consultar disponibilidad, Reservar cancha, Simular pago, Ver historial reservas, Registrar usuario, Cancelar reserva, Confirmar reserva, Gestionar canchas, Definir horarios, Ver reservas del complejo, Iniciar sesión, Cerrar sesión, Gestionar usuarios y Notificar cliente. Son las filas CU-GEN-01 a CU-GEN-14 de la matriz.
-- **Relaciones:** Reservar cancha «include» Consultar disponibilidad y Simular pago; Cancelar reserva «extend» Ver historial reservas; Cancelar reserva y Confirmar reserva «include» Notificar cliente. «include» es obligatorio y «extend» es opcional.
+- **Actores:** Cliente, Administrador y Sistema. Sistema es el actor del no-show automático: nadie lo ejecuta, el sistema marca las reservas vencidas.
+- **Casos de uso (17):** los 14 del Entregable 1 (Consultar disponibilidad, Reservar cancha, Simular pago, Ver historial reservas, Registrar usuario, Cancelar reserva, Confirmar reserva, Gestionar canchas, Definir horarios, Ver reservas del complejo, Iniciar sesión, Cerrar sesión, Gestionar usuarios y Notificar cliente), que son las filas CU-GEN-01 a CU-GEN-14 de la matriz, más Registrar asistencia, Marcar no-show y Registrar auditoría (ampliaciones de 4.2).
+- **Relaciones:** Reservar cancha «include» Consultar disponibilidad y Simular pago; Cancelar reserva «extend» Ver historial reservas. Reservar cancha, Confirmar reserva, Cancelar reserva, Registrar asistencia y Marcar no-show «include» Notificar cliente y Registrar auditoría. «include» es obligatorio y «extend» es opcional.
+- **Auditoría de la gestión:** Gestionar canchas, Definir horarios y Gestionar usuarios también registran auditoría (RF13). No se dibuja esa inclusión para no recargar el diagrama.
 
 ### Cambios respecto del Entregable 1
 
@@ -20,6 +21,10 @@ Fuente PlantUML: [`casos-de-uso.puml`](casos-de-uso.puml).
 | --- | --- | --- |
 | Simular pago pasa de «extend» a «include» de Reservar cancha | CU-GEN-03 | Reservar cancha «include» Simular pago: el pago es obligatorio e inmediato |
 | Quitar la asociación de Registrar usuario con el Administrador | CU-GEN-07.a | Registrar usuario solo se asocia con el Cliente: el registro público crea solo clientes |
+| Ampliación 1: agregar Registrar asistencia (Administrador) | 4.2 | Caso nuevo asociado al Administrador |
+| Ampliación 2: agregar el no-show automático | 4.2 | Caso Marcar no-show, asociado al actor Sistema |
+| Ampliación 3: agregar Registrar auditoría, incluido por los cambios de estado | 4.2 | Caso nuevo, incluido por Reservar cancha, Confirmar reserva, Cancelar reserva, Registrar asistencia y Marcar no-show |
+| Ampliación 4: Notificar cliente incluido por Reservar cancha | 4.2 | Reservar cancha «include» Notificar cliente. Por coherencia con el código, también lo incluyen Registrar asistencia y Marcar no-show: toda transición notifica al cliente |
 
 ## 2. CU-01 (Sistema): Reservar cancha
 
