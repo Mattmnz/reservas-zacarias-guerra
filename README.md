@@ -190,6 +190,7 @@ Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y l
 | `docs/modelos/` | Modelos UWE corregidos: casos de uso, contenido, estados de la reserva, flujo de baja de cancha y navegacional |
 | `docs/guion-demo.md` | Guion de demo y prueba integral contra producción |
 | `docs/despliegue.md` | Despliegue y control de versiones |
+| `docs/informe-final.pdf` | Informe final del proyecto |
 | `docs/http/` | Peticiones de prueba por módulo para REST Client |
 | `db/README.md` | Esquema, migraciones, seed y preparación de la base de producción |
 | `public/README.md` | Rutas de cada pantalla y convenciones del frontend |
@@ -202,7 +203,7 @@ Para volver a una versión anterior se usa *Rollback* en *Events* de Render, y l
 - Todo cambio entra por pull request, con la plantilla del repositorio (qué cambia, requisitos, cómo se probó y pendientes) y la aprobación de otro integrante.
 - Las reglas de protección de `develop` y `main` exigen pull request y checks en verde, e impiden el borrado de las ramas y el force-push.
 - El plan del sprint final y sus decisiones están en el issue fijado #35.
-- Versiones publicadas: `v0.3-backend` (backend completo y primer despliegue) y `v1.0` (entrega final).
+- Versiones publicadas: `v0.3-backend` (backend completo y primer despliegue), `v1.0` (entrega final) y `v1.0.1` (versión de documentación: modelos UWE corregidos, matriz sin pendientes e informe final; el código es el mismo de `v1.0`).
 
 ## Equipo
 
