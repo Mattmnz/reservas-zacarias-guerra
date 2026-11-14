@@ -16,7 +16,7 @@ Como el Capítulo I es el mismo en E1 y E2, se cita una sola vez como `E1 Cap. I
 
 **Fuentes de las justificaciones:** §1 de la guía principal (decisiones cerradas del dominio), el contrato técnico del equipo, que se versionará como `docs/contrato.md` (#36); #31 (redistribución de tareas) y #35 (plan del sprint final, con sus comentarios).
 
-**Corte de la evidencia:** `develop` en el commit `b9b8bfb` (merge del PR #92), al 11/11/2026, más los modelos de `docs/modelos/` de este PR. Ese día `npm test` da 710 pruebas, 710 en verde.
+**Corte de la evidencia:** `develop` en el commit `4579453` (merge del PR #93), al 13/11/2026. Ese día `npm test` da 710 pruebas, 710 en verde.
 
 **Cómo se mantiene:**
 - Cuando un PR se integra a `develop`, sus filas pasan de `pendiente (#N)` a `cumplido` o `modificado`, con la evidencia nueva, y se actualiza el corte.
@@ -289,7 +289,7 @@ La columna "Corrección" remite a la sección 4: 4.1 son correcciones y 4.2 son 
 | DES-11 | Cada capa usa solo la inferior; los módulos se comunican por su servicio, con firmas fijas | E3 §3.2 | `reservas.service` usa `canchasService`, `horariosService`, `auditoriaService` y `notificacionesService`; firmas en el contrato técnico (Funciones entre módulos) | cumplido | Las firmas nuevas se registran en #35 (por ejemplo `obtenerParaActualizar`) |
 | DES-12 | Penalización y transiciones como funciones puras con pruebas de casos límite (24 h exactas) | E3 §3.2 y §3.3 | `src/modules/reservas/reglas.js` y `reglas.test.js`; PR #29 | cumplido | |
 | DES-13.a | `develop` integra y cada tarea tiene su rama | E3 §3.3 | Historial de `develop`: solo merges de PR desde ramas `feature/`, `chore/`, `docs/`, `test/`, `fix/` y `ci/` (PR #85) | cumplido | |
-| DES-13.b | `main` solo con versiones entregadas | E3 §3.3 | Release `v1.0 — Entrega final` con el tag `v1.0` sobre `main` en `bc86292` (PR #90, 07/11/2026); `v0.3-backend` como pre-release (PR #75); #23 cerrado | cumplido | |
+| DES-13.b | `main` solo con versiones entregadas | E3 §3.3 | Release `v1.0 — Entrega final` con el tag `v1.0` sobre `main` en `bc86292` (PR #90, 07/11/2026); `v0.3-backend` como pre-release (PR #75); #23 cerrado. `v1.0.1` (13/11/2026) es una versión de documentación sobre `main`: modelos UWE, matriz sin pendientes e informe final, con el mismo código de `v1.0` | cumplido | |
 | DES-14 | Todo cambio entra por PR aprobado por otro integrante | E3 §3.3 | PR #25–#34, #51–#75 y #77–#87: todos con aprobación de alguien distinto del autor. Fuera de los merges, `develop` solo tiene el commit inicial | cumplido | |
 | DES-15 | Rotación fija de revisores | E3 §3.3 | PR #51 (B) y #52 (A) los aprobó C; PR #53 (C) lo aprobó A; PR #54 y #58 (A) los aprobó C; PR #57 (C) lo aprobó A. Desde el corte: PR #56, #59, #60 y #61 (B), #64, #65 y #68 a #70 (C) los aprobó A; PR #55, #62 y #67 (A) y #71 a #73 (C) los aprobó B; PR #63 (B) y #66 y #75 (A) los aprobó C. Desde #74: PR #74 y #82 (B) y #80, #81, #83 y #86 (A) los aprobó C; PR #78 y #79 (B) y #87 (C) los aprobó A; PR #77 (C) y #84 y #85 (A) los aprobó B | modificado | Durante la redistribución A y C se revisan entre sí y C revisa a B (#31); después revisa el primero disponible de los otros dos (#35, Revisión) |
 | DES-16 | Ramas principales protegidas contra escritura directa, borrado y reescritura | E3 §3.3 | `gh api repos/Mattmnz/reservas-zacarias-guerra/rules/branches/{develop,main}`: ruleset 24905866 con `pull_request` (1 aprobación, solo merge commit), `non_fast_forward`, `deletion` y `required_status_checks` (Pruebas, Imagen Docker y Autoría de commits) en ambas ramas | cumplido | |
@@ -373,7 +373,7 @@ Fuera del orden de recorte, el responsable decidió el 11/11 (#35) omitir dos co
 
 ## 8. Resumen
 
-Corte: `develop` en `b9b8bfb` (11/11/2026), más los modelos de `docs/modelos/` de este PR; `npm test`: 710 pruebas, 710 en verde.
+Corte: `develop` en `4579453` (13/11/2026); `npm test`: 710 pruebas, 710 en verde.
 
 | Estado | Filas |
 | --- | --- |
