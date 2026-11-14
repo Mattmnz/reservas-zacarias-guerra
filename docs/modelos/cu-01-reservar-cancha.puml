@@ -1,0 +1,32 @@
+@startuml cu-01-reservar-cancha
+' CU-01 (Sistema): Reservar cancha (E1 Cap. I), con el actor rotulado y el include de Simular pago en su sentido
+title CU-01 (Sistema): Reservar cancha
+skinparam dpi 260
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F5F8FC
+  BorderColor #3B5B7F
+}
+skinparam actorBorderColor #3B5B7F
+skinparam ArrowColor #3B5B7F
+left to right direction
+
+actor Cliente
+
+rectangle "Reservar cancha" {
+  usecase "Iniciar sesión" as Login
+  usecase "Reservar cancha" as Reservar
+  usecase "Consultar disponibilidad" as Disponibilidad
+  usecase "Simular pago" as Pago
+}
+
+Cliente -- Login
+Cliente -- Reservar
+Cliente -- Disponibilidad
+Cliente -- Pago
+
+Reservar ..> Disponibilidad : <<include>>
+Reservar ..> Pago : <<include>>
+@enduml

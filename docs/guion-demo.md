@@ -264,66 +264,90 @@ Se copia esta plantilla por cada corrida y se completa al ejecutarla. No se anot
 | --- | --- |
 | Fecha | 06/11/2026 |
 | Entorno y URL | Producción, https://reservas-zacarias-guerra.onrender.com |
-| Commit desplegado | `46223e4` (`main`) |
+| Commit desplegado | `81bca1b` (`main`, PR #86, integrado a las 20:31) |
 | Quién presenta | Álvaro Garay |
-| `T` y `Δ` real | `T` = 21:00 (inicio real 21:10); `Δ` real: <minutos> min |
-| Inicio de `Rns` | 20:00, Sala 1 (reserva #<id>) |
-| Inicio de `Ra1` y `Ra2`; cuál se usó | `Ra1` 21:00, Sala 2 (reserva #<id>), usada en el paso 21. `Ra2` no se creó: caería a las 22:00, fuera de horario |
-| Salas distintas de las previstas | Ninguna. `R2` quedó para el 07/11 a las 07:00: con `T` = 21:00 no hay bloques hoy a 2 h o más de `T` |
+| `T` y `Δ` real | `T` = 21:00. Primera acción auditada a las 21:16 (paso 6). Paso 21 a las 21:27: `Δ` real de 27 min |
+| Inicio de `Rns` | 20:00, Sala 1 (reserva #1, creada a las 19:51) |
+| Inicio de `Ra1` y `Ra2`; cuál se usó | `Ra1` 21:00, Sala 2 (reserva #2, creada a las 19:53), usada en el paso 21. `Ra2` no se creó: caería a las 22:00, fuera de horario |
+| Salas distintas de las previstas | `R1` se reservó para el 08/11 a las 07:00, no a las 19:00. `R2`, para el 07/11 a las 07:00: con `T` = 21:00 no hay bloques ese día a 2 h o más de `T`. `R3` no se creó |
 
-Los pasos se ejecutaron con las pantallas desplegadas en producción. Los pasos 4, 11 y 17 se verificaron por pantalla.
+Los ids, las horas y los datos de las reservas se tomaron el 11/11/2026 de las pantallas Reservas y Auditoría de producción. Este registro reemplaza al anterior, que daba por ejecutados los pasos 8, 9, 19, 20, 24, 38 y 39: no se ejecutaron en esta corrida y están en la corrida complementaria. Los pasos 4, 11 y 17 se verificaron por pantalla.
 
 #### Resultado por paso
 
 | Paso | Resultado | Hora | Observaciones | Issue |
 | --- | --- | --- | --- | --- |
-| 1 | OK | | CD registrado con `cliente.demo.0611@demo.local` | |
+| 1 | OK | | CD: Cliente Demo0611, `cliente.demo.0611@demo.local` (usuario #3) | |
 | 2 | OK | | | |
 | 3 | OK | | | |
 | 4 | OK | | Por pantalla: `/admin/usuarios.html` como cliente vuelve al catálogo | |
-| 5 | OK | | Fecha 08/11, tipo Sala | |
-| 6 | OK | | `R1` #<id>: Sala 3, 08/11 19:00, CARGO C$ 600 | |
-| 7 | OK | | `R2` #<id>: Sala 3, 07/11 07:00, CARGO C$ 600 | |
-| 8 | OK | | `R3` #<id>: Sala 4, 08/11 20:00, de CD; CP recibió las alternativas de Sala 4 | |
-| 9 | OK | | | |
-| 10 | OK | | | |
+| 5 | OK | | | |
+| 6 | OK | 21:16 | `R1` #3: Sala 3, 08/11 07:00, CARGO `SIM-C-3` por C$ 600 | |
+| 7 | OK | 21:17 | `R2` #4: Sala 3, 07/11 07:00, CARGO `SIM-C-4` por C$ 600 | |
+| 8 | Omitido | | `R3` no se creó. Ver la corrida complementaria | |
+| 9 | Omitido | | Depende del paso 8. Ver la corrida complementaria | |
+| 10 | OK | | Historial con `R1` y `R2` | |
 | 11 | OK | | Por pantalla: CP abre la confirmación de `R1` y recibe un error de permisos | |
-| 12 | OK | | 0 %, reembolso C$ 600 | |
-| 13 | OK | | 50 %, penalizado C$ 300, reembolso C$ 300 | |
+| 12 | OK | 21:22 | `R1`: 0 %, reembolso C$ 600 (`SIM-R-3`) | |
+| 13 | OK | 21:23 | `R2`: 50 %, penalizado C$ 300, reembolso C$ 300 (`SIM-R-4`), con motivo | |
 | 14 | OK | | | |
 | 15 | OK | | | |
 | 16 | OK | | | |
 | 17 | OK | | Por pantalla: `/cliente/catalogo.html` como administrador vuelve al panel | |
 | 18 | OK | | | |
-| 19 | OK | | | |
-| 20 | OK | | | |
-| 21 | OK | <hh:mm> | Asistencia de `Ra1` → Completada | |
-| 22 | OK | | `Rns` en No-show, penalizado C$ 600, solo CARGO | |
+| 19 | Omitido | | `R3` no se creó. Ver la corrida complementaria | |
+| 20 | Omitido | | `R3` no se creó. Ver la corrida complementaria | |
+| 21 | OK | 21:27 | Asistencia de `Ra1` (#2): Pagada → Completada | |
+| 22 | OK | | `Rns` (#1) en No-show desde las 21:01, marcada por el sistema; penalizado C$ 600, solo CARGO `SIM-C-1` | |
 | 23 | OK | | | |
-| 24 | OK | | 0 %, reembolso C$ 600 | |
-| 25 | OK | | Cancha `Demo 0611-2110` #<id> | |
-| 26 | OK | | | |
-| 27 | OK | | | |
-| 28 | OK | | `R4` #<id>: Cancha Demo, 08/11 19:00, CARGO C$ 1,200 | |
+| 24 | Omitido | | `R3` no se creó. Ver la corrida complementaria | |
+| 25 | OK | 21:32 | Cancha `Demo 0611` (#8), creada como Sala | |
+| 26 | OK | 21:33 | Tipo: Sala → Campo | |
+| 27 | OK | 21:34 | Los 7 días de 07:00 a 22:00 | |
+| 28 | OK | 21:35 | `R4` #5: `Demo 0611`, 08/11 19:00, CARGO `SIM-C-5` por C$ 1,200 | |
 | 29 | OK | | Alerta con 1 reserva activa; la cancha sigue activa | |
-| 30 | OK | | | |
-| 31 | OK | | `R4` cancelada con reembolso C$ 1,200 | |
+| 30 | OK | 21:37 | Baja con motivo; 1 reserva cancelada | |
+| 31 | OK | | `R4` cancelada con reembolso de C$ 1,200 (`SIM-R-5`) | |
 | 32 | OK | | | |
-| 33 | OK | | | |
-| 34 | OK | | | |
-| 35 | OK | | | |
-| 36 | OK | | | |
-| 37 | OK | | Vista móvil del navegador a 360 px | |
-| 38 | OK | | Salida guardada de la medición del 05/11 | |
-| 39 | Omitido | | No se ejecutó en esta corrida. Evidencia de la prueba: PR #56 | |
-| Cierre | OK | | Cancha Demo inactiva; `R1` a `R4` canceladas; CD activo y como cliente; `Ra1` completada | |
+| 33 | OK | 21:38 y 21:43 | CD pasa a administrador y vuelve a cliente. La vuelta a cliente se hizo después del paso 34 | |
+| 34 | OK | 21:39 y 21:40 | Desactivación y activación de CD. Fuera del guion: con CD como administrador se desactivó y reactivó la cuenta Administrador (usuario #1), de 21:40 a 21:41 | |
+| 35 | OK | | Error: no se puede cambiar el rol ni el estado del propio usuario | |
+| 36 | OK | | Sin `R3` | |
+| 37 | OK | | Vista móvil del navegador | |
+| 38 | Omitido | | No se mostró en esta corrida. Ver la corrida complementaria | |
+| 39 | Omitido | | No se ejecutó en esta corrida. Ver la corrida complementaria | |
+| Cierre | OK | | Cancha `Demo 0611` inactiva; `R1`, `R2` y `R4` canceladas; CD activo y como cliente; `Ra1` completada | |
 
-#### Evidencia de RNF
+### Corrida complementaria: 11/11/2026
+
+| Dato | Valor |
+| --- | --- |
+| Fecha | 11/11/2026 |
+| Entorno y URL | Producción, https://reservas-zacarias-guerra.onrender.com |
+| Commit desplegado | `bc86292` (`main`, PR #90) |
+| Quién presenta | Álvaro Garay |
+| Alcance | Pasos 8, 9, 19, 20, 24, 38 y 39, que no se ejecutaron en la corrida 1 |
+| `R3` | Sala 4, 13/11 a las 20:00 (reserva #6) |
+
+#### Resultado por paso
+
+| Paso | Resultado | Hora | Observaciones | Issue |
+| --- | --- | --- | --- | --- |
+| 8 | OK | | `R3` #6 de CD: Sala 4, 13/11 20:00, CARGO `SIM-C-6` por C$ 600. CP abrió el mismo bloque y recibió los otros horarios libres de Sala 4 | |
+| 9 | OK | | Sala 4 dejó de ofrecer las 20:00 del 13/11 | |
+| 19 | OK | | `R3` pasó a Confirmada y la tarjeta dejó de ofrecer «Confirmar» | |
+| 20 | OK | | La tarjeta de `R3` no ofrece registrar la asistencia antes de su ventana | |
+| 24 | OK | 00:54 | El administrador cancela `R3`: Confirmada → Cancelada, 0 %, reembolso C$ 600 (`SIM-R-6`), con motivo | |
+| 38 | OK | | Salida guardada de la medición del 05/11: RNF04 cumple | |
+| 39 | OK | | 5 rondas contra la base local: 1 × 201 y 9 × 409 en cada una | |
+| Cierre | OK | | `R3` cancelada | |
+
+### Evidencia de RNF
 
 | RNF | Resultado | Fecha | Entorno | Dónde está la salida |
 | --- | --- | --- | --- | --- |
 | RNF04 | Cumple: 75 consultas, 0 con error, promedio 369 ms, máximo 544 ms | 05/11/2026 23:00 | Producción (`main` en `fe9cf37`) | PR #79 y fila RNF04 de `docs/trazabilidad.md` |
-| RNF09 | No ejecutada en esta corrida | — | Base local | Evidencia de la prueba: PR #56 y fila RNF09.b de `docs/trazabilidad.md` |
+| RNF09 | OK (5/5 rondas): 1 × 201 y 9 × 409 `HORARIO_OCUPADO` por ronda | 11/11/2026 | Base local (`develop` en `607eb26`) | Salida guardada fuera del repositorio |
 ## 9. Reporte de fallas
 
 Toda falla se reporta como issue `bug`, asignado al dueño del módulo.
